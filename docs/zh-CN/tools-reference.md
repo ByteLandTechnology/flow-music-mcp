@@ -139,20 +139,24 @@
 
 ### `music_video`
 
-列出、获取、查看状态或删除音乐视频。操作 "create" 会为歌曲排队创建新视频。类型 "social" 制作简短的 720p 竖屏片段，等待渲染完成并下载 MP4；服务器可能不收取额度。类型 "music" 请求 Producer 制作完整的音乐视频，会消耗额度，尚未在线上服务中验证。
+列出、获取、查看状态或删除音乐视频。操作 "create" 会为歌曲排队创建新视频。类型 "social" 制作简短的 720p 竖屏片段，等待渲染完成并下载 MP4；服务器可能不收取额度。类型 "music" 根据歌曲片段、视觉指导和可选的风格图片制作自定义音乐视频；每秒视频约消耗 12.5 额度（默认 30 秒），等待渲染完成（约 5 分钟）并下载 MP4。
 
 | 参数 | 类型 | 必需 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `action` | string | 否 | 操作："list"（默认）、"get"、"status"、"delete" 或 "create"（排队，消耗额度）。 |
+| `aspect_ratio` | string | 否 | "music" 视频的宽高比："9:16"（默认）或 "16:9"。 |
 | `clip_id` | string | 否 | "create" 使用的歌曲片段 ID。 |
-| `download` | boolean | 否 | 等待 "social" 视频渲染完成并下载（默认 true）。 |
+| `download` | boolean | 否 | 等待视频渲染完成并下载（默认 true）。 |
 | `id` | string | 否 | "get"、"status" 和 "delete" 使用的音乐视频 ID。 |
-| `instructions` | string | 否 | "music" 视频的额外指导，例如视觉风格。 |
-| `kind` | string | 否 | "create" 的视频类型："music"（默认，由 Producer 策划完整的音乐视频）或 "social"（简短的竖屏片段）。 |
-| `length_s` | integer | 否 | "social" 视频的时长（秒）（默认 15）。 |
+| `instructions` | string | 否 | "music" 视频的视觉指导，例如场景和风格。 |
+| `kind` | string | 否 | "create" 的视频类型："music"（默认，消耗额度的自定义音乐视频）或 "social"（简短的竖屏片段）。 |
+| `length_s` | integer | 否 | 视频时长（秒）（"social" 默认 15，"music" 默认 30）。"music" 视频每秒约消耗 12.5 额度。 |
 | `limit` | integer | 否 | "list" 返回的最大视频数（默认 20）。 |
 | `offset` | integer | 否 | "list" 跳过的视频数（默认 0）。 |
 | `session_id` | string | 否 | "create" 使用的现有会话 ID。省略时创建新会话。 |
+| `show_lyrics` | boolean | 否 | 在 "music" 视频中显示歌词（默认 false）。 |
+| `start_s` | number | 否 | "music" 视频在歌曲中的起始时间（秒）（默认 0）。 |
+| `style_image_url` | string | 否 | "music" 视频的风格参考图片 URL，例如 music_upload 返回的 image_url。 |
 
 ## 队列控制
 

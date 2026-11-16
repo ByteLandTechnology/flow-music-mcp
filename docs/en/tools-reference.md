@@ -139,20 +139,24 @@ Queue a message to the Google Flow Music Producer agent. The Producer can write 
 
 ### `music_video`
 
-List, get, check status of, or delete music videos. Action "create" queues a new video for a song. Kind "social" makes a short vertical 720p clip, waits for the render, and downloads the MP4; the server can make it without credits. Kind "music" asks the Producer for a full music video, spends credits, and is not yet verified against the live service.
+List, get, check status of, or delete music videos. Action "create" queues a new video for a song. Kind "social" makes a short vertical 720p clip, waits for the render, and downloads the MP4; the server can make it without credits. Kind "music" makes a custom music video from the song section, the visual direction, and an optional style image; it spends about 12.5 credits per second of video (30 seconds by default), waits for the render (about 5 minutes), and downloads the MP4.
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | `action` | string | no | Action: "list" (default), "get", "status", "delete", or "create" (queued, spends credits). |
+| `aspect_ratio` | string | no | Aspect ratio of a "music" video: "9:16" (default) or "16:9". |
 | `clip_id` | string | no | Song clip ID for "create". |
-| `download` | boolean | no | Wait for a "social" video to render and download it (default true). |
+| `download` | boolean | no | Wait for the video to render and download it (default true). |
 | `id` | string | no | Music video ID for "get", "status", and "delete". |
-| `instructions` | string | no | Extra direction for a "music" video, for example the visual style. |
-| `kind` | string | no | Video type for "create": "music" (default, the Producer plans a full music video) or "social" (a short vertical clip). |
-| `length_s` | integer | no | Length in seconds for a "social" video (default 15). |
+| `instructions` | string | no | Visual direction for a "music" video, for example the scene and the style. |
+| `kind` | string | no | Video type for "create": "music" (default, a custom music video that spends credits) or "social" (a short vertical clip). |
+| `length_s` | integer | no | Video length in seconds (default 15 for "social", 30 for "music"). A "music" video costs about 12.5 credits per second. |
 | `limit` | integer | no | Maximum number of videos for "list" (default 20). |
 | `offset` | integer | no | Number of videos to skip for "list" (default 0). |
 | `session_id` | string | no | Existing session ID for "create". Omit to create a new session. |
+| `show_lyrics` | boolean | no | Show the lyrics on screen in a "music" video (default false). |
+| `start_s` | number | no | Start point in the song in seconds for a "music" video (default 0). |
+| `style_image_url` | string | no | Style reference image URL for a "music" video, for example the image_url from music_upload. |
 
 ## Queue control
 

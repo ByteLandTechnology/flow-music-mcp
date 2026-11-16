@@ -4,8 +4,9 @@
 //! Chat messages to the Producer agent and music video jobs.
 //!
 //! The Producer agent selects and runs tools by itself, thus a chat message can
-//! spend credits. Music videos come from the Producer: it first proposes a video
-//! plan, and a second message confirms the plan.
+//! spend credits. A music video takes two direct tool calls in one session:
+//! `video__propose_music_video` stores the video inputs, and
+//! `video__create_music_video` renders the latest proposal.
 
 use anyhow::Result;
 use schemars::JsonSchema;
@@ -24,6 +25,9 @@ use crate::queue::{JobEvent, JobResult, ProgressCallback};
 
 /// Interval between music video status polls.
 const VIDEO_POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Approximate credits per second of a "music" video, as the page estimates them.
+const MUSIC_VIDEO_CREDITS_PER_S: f64 = 12.5;
 
 /// Default maximum time for one Producer reply in seconds.
 const DEFAULT_CHAT_TIMEOUT_S: u64 = 900;
@@ -52,15 +56,23 @@ pub(crate) struct VideoParams {
     pub(crate) id: Option<String>,
     /// Song clip ID for "create".
     pub(crate) clip_id: Option<String>,
-    /// Video type for "create": "music" (default, the Producer plans a full music video) or "social" (a short vertical clip).
+    /// Video type for "create": "music" (default, a custom music video that spends credits) or "social" (a short vertical clip).
     pub(crate) kind: Option<String>,
-    /// Length in seconds for a "social" video (default 15).
+    /// Video length in seconds (default 15 for "social", 30 for "music"). A "music" video costs about 12.5 credits per second.
     pub(crate) length_s: Option<u32>,
-    /// Extra direction for a "music" video, for example the visual style.
+    /// Start point in the song in seconds for a "music" video (default 0).
+    pub(crate) start_s: Option<f64>,
+    /// Aspect ratio of a "music" video: "9:16" (default) or "16:9".
+    pub(crate) aspect_ratio: Option<String>,
+    /// Show the lyrics on screen in a "music" video (default false).
+    pub(crate) show_lyrics: Option<bool>,
+    /// Visual direction for a "music" video, for example the scene and the style.
     pub(crate) instructions: Option<String>,
+    /// Style reference image URL for a "music" video, for example the image_url from music_upload.
+    pub(crate) style_image_url: Option<String>,
     /// Existing session ID for "create". Omit to create a new session.
     pub(crate) session_id: Option<String>,
-    /// Wait for a "social" video to render and download it (default true).
+    /// Wait for the video to render and download it (default true).
     pub(crate) download: Option<bool>,
     /// Maximum number of videos for "list" (default 20).
     pub(crate) limit: Option<u32>,
@@ -166,13 +178,14 @@ async fn wait_video_ready(
     }
 }
 
-/// Waits for the social video `video_id`, downloads it when `download` is true, and builds the job result.
+/// Waits for the video `video_id`, downloads it when `download` is true, and builds the job result.
 async fn finish_video(
     client: &MusicClient,
     db: &MusicDb,
     video_id: String,
     session_id: Option<String>,
     download: bool,
+    extra: Value,
     progress: &ProgressCallback,
 ) -> Result<JobResult> {
     let mut result = JobResult {
@@ -180,6 +193,11 @@ async fn finish_video(
         ..JobResult::default()
     };
     let mut payload = json!({ "session_id": session_id, "video_id": video_id });
+    if let (Some(dst), Some(src)) = (payload.as_object_mut(), extra.as_object()) {
+        for (k, v) in src {
+            dst.insert(k.clone(), v.clone());
+        }
+    }
     if !download {
         payload["next"] = json!(
             "The video renders on the server. Use music_video with action \"status\", then music_download with kind \"video\"."
@@ -212,6 +230,53 @@ async fn finish_video(
     Ok(result)
 }
 
+/// Returns the video ID that a video tool returned, or an error with the tool output.
+fn submitted_video_id(content: &Value) -> Result<String> {
+    if content.get("needs_credits").and_then(Value::as_bool) == Some(true)
+        || content.get("needsCredits").and_then(Value::as_bool) == Some(true)
+    {
+        anyhow::bail!("Not enough credits for this video: {}", content);
+    }
+    ["video_id", "videoId", "job_id", "jobId"]
+        .iter()
+        .find_map(|k| content.get(*k).and_then(Value::as_str))
+        .map(str::to_string)
+        .ok_or_else(|| anyhow::anyhow!("The video tool returned no video ID: {}", content))
+}
+
+/// Builds the proposal inputs of a "music" video from `req`.
+fn music_video_inputs(req: &VideoParams, clip_id: &str) -> Result<Value> {
+    let length = req.length_s.unwrap_or(30);
+    anyhow::ensure!(length > 0, "length_s must be greater than 0");
+    let start = req.start_s.unwrap_or(0.0);
+    anyhow::ensure!(start >= 0.0, "start_s must not be negative");
+    let aspect = req.aspect_ratio.as_deref().unwrap_or("9:16");
+    anyhow::ensure!(
+        matches!(aspect, "9:16" | "16:9"),
+        "aspect_ratio must be 9:16 or 16:9"
+    );
+    Ok(json!({
+        "aspect_ratio": aspect,
+        "clip_id": clip_id,
+        "duration_s": length,
+        "render_lyrics": req.show_lyrics.unwrap_or(false),
+        "resolution": "720p",
+        "start_s": start,
+        "style_image_url": req.style_image_url.as_deref().filter(|s| !s.trim().is_empty()),
+        "user_message": req.instructions.as_deref().map(str::trim).unwrap_or(""),
+    }))
+}
+
+/// Returns the credit estimate of a "music" video with `inputs`, as the page computes it.
+fn music_video_estimate(inputs: &Value) -> u64 {
+    let seconds = inputs
+        .get("duration_s")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    // The value is small and positive, thus the conversion cannot lose meaning.
+    (seconds * MUSIC_VIDEO_CREDITS_PER_S).ceil().max(0.0) as u64
+}
+
 /// Runs a `music_video` "create" job.
 pub(crate) async fn run_video_job(
     client: &MusicClient,
@@ -223,6 +288,7 @@ pub(crate) async fn run_video_job(
         .clip_id
         .clone()
         .ok_or_else(|| anyhow::anyhow!("Action \"create\" needs 'clip_id'"))?;
+    let download = req.download.unwrap_or(true);
     match req.kind.as_deref().unwrap_or("music") {
         "social" => {
             let outcome = run_tool(
@@ -237,50 +303,61 @@ pub(crate) async fn run_video_job(
                 &progress,
             )
             .await?;
-            let video_id = ["video_id", "videoId", "job_id"]
-                .iter()
-                .find_map(|k| outcome.content.get(*k).and_then(Value::as_str))
-                .map(str::to_string)
-                .ok_or_else(|| {
-                    anyhow::anyhow!("The video tool returned no video ID: {}", outcome.content)
-                })?;
+            let video_id = submitted_video_id(&outcome.content)?;
             finish_video(
                 client,
                 db,
                 video_id,
                 outcome.conversation_id,
-                req.download.unwrap_or(true),
+                download,
+                json!({}),
                 &progress,
             )
             .await
         }
         "music" => {
-            let extra = req
-                .instructions
-                .as_deref()
-                .map(|s| format!(" Direction: {s}"))
-                .unwrap_or_default();
-            let message = format!(
-                "Make a music video for the song with clip ID {clip_id}.{extra} Use the song as the soundtrack."
-            );
-            let outcome = run_chat(
+            let inputs = music_video_inputs(&req, &clip_id)?;
+            let estimate = music_video_estimate(&inputs);
+            progress(JobEvent::Progress(format!(
+                "proposing music video (about {estimate} credits)"
+            )));
+            let proposal = run_tool(
                 client,
-                req.session_id.as_deref(),
-                &message,
-                Duration::from_secs(DEFAULT_CHAT_TIMEOUT_S),
+                ToolRequest {
+                    tool_name: "video__propose_music_video",
+                    args: json!({ "inputs": inputs }),
+                    conversation_id: req.session_id.as_deref(),
+                    lyrics_map: Map::new(),
+                    timeout: TOOL_TIMEOUT,
+                },
                 &progress,
             )
             .await?;
-            Ok(JobResult {
-                result: Some(json!({
-                    "session_id": outcome.conversation_id,
-                    "reply": outcome.reply.join("\n\n"),
-                    "tools": outcome.tools,
-                    "suggestions": outcome.suggestions,
-                    "next": "If the Producer proposed a plan, confirm it with music_chat in the same session. Then use music_video with action \"list\".",
-                })),
-                ..JobResult::default()
-            })
+            let session = proposal.conversation_id.or(req.session_id.clone());
+            // The server takes the inputs of the latest proposal in the session.
+            let outcome = run_tool(
+                client,
+                ToolRequest {
+                    tool_name: "video__create_music_video",
+                    args: json!({}),
+                    conversation_id: session.as_deref(),
+                    lyrics_map: Map::new(),
+                    timeout: TOOL_TIMEOUT,
+                },
+                &progress,
+            )
+            .await?;
+            let video_id = submitted_video_id(&outcome.content)?;
+            finish_video(
+                client,
+                db,
+                video_id,
+                outcome.conversation_id.or(session),
+                download,
+                json!({ "inputs": inputs, "estimated_credits": estimate }),
+                &progress,
+            )
+            .await
         }
         other => anyhow::bail!("Unknown video kind '{}'. Use music or social.", other),
     }
