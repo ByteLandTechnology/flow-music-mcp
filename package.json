@@ -1,0 +1,14 @@
+{
+  "name": "flow-music-mcp-browser-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed browser runtime bundle for flow-music-mcp",
+  "scripts": {
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "build": "esbuild ts/index.ts --bundle --format=iife --platform=browser --target=es2022 --charset=utf8"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

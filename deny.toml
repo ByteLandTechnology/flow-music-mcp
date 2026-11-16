@@ -1,0 +1,38 @@
+[advisories]
+yanked = "deny"
+ignore = [
+  { id = "RUSTSEC-2026-0459", reason = "Offline cache pins rusqlite 0.32.1; only local 0600 flow-mcp.db and Chrome profile scratch copies are opened" },
+  { id = "RUSTSEC-2026-0457", reason = "Offline cache pins rmcp 3.1.2; flow-mcp only uses the stdio server transport and never runs the OAuth client" },
+  { id = "RUSTSEC-2026-0461", reason = "Offline cache pins rmcp 3.1.2; StreamableHttpService is not enabled or used in flow-mcp" },
+  { id = "RUSTSEC-2026-0462", reason = "Offline cache pins rmcp 3.1.2; Streamable HTTP client transports are not enabled or used in flow-mcp" },
+]
+
+[licenses]
+allow = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-3-Clause",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "Unicode-3.0",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+skip = [
+  { crate = "base64@0.22.1", reason = "reqwest 0.12 requires base64 0.22 while hyper-util 0.1 uses base64 0.23" },
+  { crate = "getrandom@0.2.17", reason = "ring 0.17 requires getrandom 0.2 while tempfile and uuid use getrandom 0.4" },
+  { crate = "getrandom@0.3.4", reason = "rand_core 0.9 via tungstenite 0.26 requires getrandom 0.3 while tempfile and uuid use getrandom 0.4" },
+  { crate = "r-efi@5.3.0", reason = "getrandom 0.3 requires r-efi 5.3 while getrandom 0.4 requires r-efi 6.0" },
+  { crate = "syn@2.0.119", reason = "tracing-attributes 0.1 and windows-core 0.62 macros require syn 2 while tokio and serde macros use syn 3" },
+  { crate = "windows-sys@0.52.0", reason = "ring 0.17 requires windows-sys 0.52 while tokio and tempfile use windows-sys 0.61" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

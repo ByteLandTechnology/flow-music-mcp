@@ -1,0 +1,28 @@
+# Rust / Cargo
+debug/
+/target/
+/dist/
+/npm-dist/
+**/*.rs.bk
+*.pdb
+**/mutants.out*/
+rustc-ice-*.txt
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Node / TypeScript
+/node_modules/
+npm-debug.log*
+
+# flow-music-mcp runtime data
+/.flow-music-mcp/
+/chrome-profile/
+/downloads/
+*.db
+*.db-wal
+*.db-shm
+cookies.json
