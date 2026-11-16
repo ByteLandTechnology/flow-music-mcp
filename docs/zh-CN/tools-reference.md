@@ -167,7 +167,7 @@
 
 ### `music_cancel`
 
-取消排队中或运行中的 Google Flow Music 作业。
+取消排队中或运行中的 Google Flow Music 作业。排队中的作业不消耗 credits。对于运行中的作业，服务器会继续渲染工具调用已开始的 clip，并扣除相应 credits；取消只会停止等待、下载和会话。
 
 | 参数 | 类型 | 必需 | 说明 |
 | :--- | :--- | :--- | :--- |
@@ -204,6 +204,9 @@
 | 参数 | 类型 | 必需 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `action` | string | 否 | 操作："list"（默认）、"get"、"create"、"rename"、"stop" 或 "delete"。 |
+| `delete_songs` | boolean | 否 | "delete" 时同时删除该会话的歌曲（默认 false）。 |
+| `delete_spaces` | boolean | 否 | "delete" 时同时删除该会话的 Spaces（默认 false）。 |
+| `delete_videos` | boolean | 否 | "delete" 时同时删除该会话的音乐视频（默认 false）。 |
 | `id` | string | 否 | "get"、"rename"、"stop" 和 "delete" 使用的会话 ID。 |
 | `limit` | integer | 否 | "list" 返回的最大会话数（默认 30，最大 100）。 |
 | `offset` | integer | 否 | "list" 跳过的会话数（默认 0）。 |
@@ -225,16 +228,16 @@
 
 ### `music_spaces`
 
-列出、获取、重命名或删除 Spaces（交互式乐器和工具）。如需创建 Space，请通过 music_chat 向 Producer 描述它。
+列出、获取、更改隐私设置或删除 Spaces（交互式乐器和工具）。如需创建 Space，请通过 music_chat 向 Producer 描述它。
 
 | 参数 | 类型 | 必需 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `action` | string | 否 | 操作："list"（默认）、"get"、"rename" 或 "delete"。使用 music_chat 创建 Space。 |
-| `id` | string | 否 | "get"、"rename" 和 "delete" 使用的 Space ID。 |
+| `action` | string | 否 | 操作："list"（默认）、"get"、"privacy" 或 "delete"。使用 music_chat 创建 Space。 |
+| `id` | string | 否 | "get"、"privacy" 和 "delete" 使用的 Space 版本 ID（"list" 返回的 "id" 字段）。 |
 | `include_files` | boolean | 否 | 包含每个 Space 的源文件（默认 false）。 |
 | `limit` | integer | 否 | "list" 返回的最大 Space 数（默认 20，最大 100）。 |
-| `name` | string | 否 | "rename" 的新名称。 |
 | `offset` | integer | 否 | "list" 跳过的 Space 数（默认 0）。 |
+| `privacy` | string | 否 | "privacy" 的新隐私设置："public"、"unlisted" 或 "private"。 |
 
 ### `music_upload`
 

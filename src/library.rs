@@ -46,6 +46,12 @@ pub(crate) struct SessionsParams {
     pub(crate) limit: Option<u32>,
     /// Number of sessions to skip for "list" (default 0).
     pub(crate) offset: Option<u32>,
+    /// Also delete the songs of the session for "delete" (default false).
+    pub(crate) delete_songs: Option<bool>,
+    /// Also delete the Spaces of the session for "delete" (default false).
+    pub(crate) delete_spaces: Option<bool>,
+    /// Also delete the music videos of the session for "delete" (default false).
+    pub(crate) delete_videos: Option<bool>,
 }
 
 /// Returns the one clip ID of `ids`, or an error.
@@ -89,7 +95,14 @@ pub(crate) async fn songs(client: &MusicClient, req: SongsParams) -> Result<Valu
             let ids = req.ids.unwrap_or_default();
             anyhow::ensure!(!ids.is_empty(), "Action \"get\" needs 'ids'");
             let clips = fetch_clips(client, &ids).await?;
-            Ok(json!({ "songs": clips.iter().map(clip_summary).collect::<Vec<_>>() }))
+            let (found, missing): (Vec<&Value>, Vec<&Value>) = clips
+                .iter()
+                .partition(|c| c.get("created_at").is_some_and(|v| !v.is_null()));
+            let missing: Vec<&Value> = missing.iter().filter_map(|c| c.get("id")).collect();
+            Ok(json!({
+                "songs": found.into_iter().map(clip_summary).collect::<Vec<_>>(),
+                "missing": missing,
+            }))
         }
         "rename" => {
             let id = single_id(&req.ids)?;
@@ -256,10 +269,19 @@ pub(crate) async fn sessions(client: &MusicClient, req: SessionsParams) -> Resul
             Ok(json!({ "stopped": id()?, "response": res }))
         }
         "delete" => {
+            let body = json!({
+                "delete_clips": req.delete_songs.unwrap_or(false),
+                "delete_spaces": req.delete_spaces.unwrap_or(false),
+                "delete_music_videos": req.delete_videos.unwrap_or(false),
+            });
             client
-                .api("DELETE", &format!("/conversations/{}", id()?), None)
+                .api(
+                    "DELETE",
+                    &format!("/conversations/{}", id()?),
+                    Some(body.clone()),
+                )
                 .await?;
-            Ok(json!({ "deleted": id()? }))
+            Ok(json!({ "deleted": id()?, "options": body }))
         }
         other => anyhow::bail!("Unknown sessions action: {}", other),
     }

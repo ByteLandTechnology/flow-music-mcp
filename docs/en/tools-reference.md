@@ -167,7 +167,7 @@ Wait for queued or running Google Flow Music jobs to finish.
 
 ### `music_cancel`
 
-Cancel a queued or running Google Flow Music job.
+Cancel a queued or running Google Flow Music job. A queued job spends no credits. For a running job, the server keeps rendering the clips that a tool call already started, and spends their credits; the cancel stops the wait, the download, and the session.
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
@@ -204,6 +204,9 @@ List, read the transcript of, create, rename, stop, or delete Google Flow Music 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | `action` | string | no | Action: "list" (default), "get", "create", "rename", "stop", or "delete". |
+| `delete_songs` | boolean | no | Also delete the songs of the session for "delete" (default false). |
+| `delete_spaces` | boolean | no | Also delete the Spaces of the session for "delete" (default false). |
+| `delete_videos` | boolean | no | Also delete the music videos of the session for "delete" (default false). |
 | `id` | string | no | Session ID for "get", "rename", "stop", and "delete". |
 | `limit` | integer | no | Maximum number of sessions for "list" (default 30, max 100). |
 | `offset` | integer | no | Number of sessions to skip for "list" (default 0). |
@@ -225,16 +228,16 @@ List, get, create, update, or delete playlists, and add, remove, or reorder song
 
 ### `music_spaces`
 
-List, get, rename, or delete Spaces (interactive instruments and tools). To create a Space, describe it to the Producer with music_chat.
+List, get, change the privacy of, or delete Spaces (interactive instruments and tools). To create a Space, describe it to the Producer with music_chat.
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `action` | string | no | Action: "list" (default), "get", "rename", or "delete". Create a Space with music_chat. |
-| `id` | string | no | Space ID for "get", "rename", and "delete". |
+| `action` | string | no | Action: "list" (default), "get", "privacy", or "delete". Create a Space with music_chat. |
+| `id` | string | no | Space version ID (the "id" field of "list") for "get", "privacy", and "delete". |
 | `include_files` | boolean | no | Include the source files of each Space (default false). |
 | `limit` | integer | no | Maximum number of Spaces for "list" (default 20, max 100). |
-| `name` | string | no | New name for "rename". |
 | `offset` | integer | no | Number of Spaces to skip for "list" (default 0). |
+| `privacy` | string | no | New privacy for "privacy": "public", "unlisted", or "private". |
 
 ### `music_upload`
 

@@ -32,12 +32,12 @@ pub(crate) struct PlaylistsParams {
 /// Parameters for `music_spaces`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub(crate) struct SpacesParams {
-    /// Action: "list" (default), "get", "rename", or "delete". Create a Space with music_chat.
+    /// Action: "list" (default), "get", "privacy", or "delete". Create a Space with music_chat.
     pub(crate) action: Option<String>,
-    /// Space ID for "get", "rename", and "delete".
+    /// Space version ID (the "id" field of "list") for "get", "privacy", and "delete".
     pub(crate) id: Option<String>,
-    /// New name for "rename".
-    pub(crate) name: Option<String>,
+    /// New privacy for "privacy": "public", "unlisted", or "private".
+    pub(crate) privacy: Option<String>,
     /// Include the source files of each Space (default false).
     pub(crate) include_files: Option<bool>,
     /// Maximum number of Spaces for "list" (default 20, max 100).
@@ -166,14 +166,17 @@ pub(crate) async fn playlists(client: &MusicClient, req: PlaylistsParams) -> Res
 }
 
 /// Builds a compact Space summary, with source files when `include_files` is true.
+///
+/// The summary `id` is the Space version ID, because the Space API paths take that ID.
 fn space_summary(space: &Value, include_files: bool) -> Value {
     let files = space.get("files").and_then(Value::as_array);
     let mut out = json!({
-        "id": space.get("id"),
+        "id": space.get("version_id"),
+        "space_id": space.get("id"),
         "name": space.get("name"),
         "type": space.get("type"),
         "version": space.get("version"),
-        "version_id": space.get("version_id"),
+        "privacy": space.get("privacy"),
         "file_names": files.map(|f| f.iter().filter_map(|x| x.get("filepath")).cloned().collect::<Vec<_>>()),
     });
     if include_files {
@@ -205,16 +208,25 @@ pub(crate) async fn spaces(client: &MusicClient, req: SpacesParams) -> Result<Va
             let space = res.get("data").unwrap_or(&res);
             Ok(space_summary(space, include_files))
         }
-        "rename" => {
+        "privacy" => {
             let id = required(&req.id, "id")?;
-            let name = required(&req.name, "name")?;
+            let privacy = required(&req.privacy, "privacy")?;
+            anyhow::ensure!(
+                matches!(privacy, "public" | "unlisted" | "private"),
+                "privacy must be public, unlisted, or private"
+            );
             client
                 .api(
                     "PATCH",
                     &format!("/space/{id}"),
-                    Some(json!({ "name": name })),
+                    Some(json!({ "privacy": privacy })),
                 )
-                .await
+                .await?;
+            let res = client.get(&format!("/space/{id}")).await?;
+            Ok(space_summary(
+                res.get("data").unwrap_or(&res),
+                include_files,
+            ))
         }
         "delete" => {
             let id = required(&req.id, "id")?;

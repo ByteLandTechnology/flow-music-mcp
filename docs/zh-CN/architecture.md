@@ -53,7 +53,7 @@ Rust 端只使用固定的 API 路径。任何工具都不能向调用方指定�
 `JobQueue` 在一个工作任务上逐个运行作业。在两个作业之间，工作任务会等待 `FLOW_MUSIC_MCP_PAUSE_MIN_S` 到 `FLOW_MUSIC_MCP_PAUSE_MAX_S` 之间的随机时间（默认 5 到 15 秒）。
 
 - 队列从不自动重试作业。`music_retry` 会重新运行失败或已取消的作业，并再次消耗额度。
-- `music_cancel` 停止本地作业。如果该作业有会话，服务器还会发送 `POST /__api/conversations/<id>/stop`。
+- `music_cancel` 停止本地作业。如果该作业有会话，服务器还会发送 `POST /__api/conversations/<id>/stop`。工具调用已开始的 clip 仍会在服务器上继续渲染并消耗 credits。
 - 队列在内存中保留最近 200 个作业。服务器重启会清空队列，但歌曲仍保留在您的资料库中。
 
 ## 存储

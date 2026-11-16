@@ -167,7 +167,7 @@ Google Flow Music の Producer エージェントへのメッセージをキュ�
 
 ### `music_cancel`
 
-キュー内または実行中の Google Flow Music ジョブをキャンセルします。
+キュー内または実行中の Google Flow Music ジョブをキャンセルします。キュー内のジョブは credits を消費しません。実行中のジョブでは、ツール呼び出しがすでに開始した clip をサーバーがレンダリングし続け、その credits を消費します。キャンセルで停止するのは、待機、ダウンロード、セッションです。
 
 | パラメーター | 型 | 必須 | 説明 |
 | :--- | :--- | :--- | :--- |
@@ -204,6 +204,9 @@ Google Flow Music のセッション（Producer との会話）の一覧表示�
 | パラメーター | 型 | 必須 | 説明 |
 | :--- | :--- | :--- | :--- |
 | `action` | string | いいえ | アクション: "list"（既定値）、"get"、"create"、"rename"、"stop"、または "delete"。 |
+| `delete_songs` | boolean | いいえ | "delete" でセッションの曲も削除します（既定値 false）。 |
+| `delete_spaces` | boolean | いいえ | "delete" でセッションの Spaces も削除します（既定値 false）。 |
+| `delete_videos` | boolean | いいえ | "delete" でセッションのミュージックビデオも削除します（既定値 false）。 |
 | `id` | string | いいえ | "get"、"rename"、"stop"、"delete" に使用するセッション ID。 |
 | `limit` | integer | いいえ | "list" で返すセッションの最大数（既定値 30、最大 100）。 |
 | `offset` | integer | いいえ | "list" でスキップするセッションの数（既定値 0）。 |
@@ -225,16 +228,16 @@ Google Flow Music のセッション（Producer との会話）の一覧表示�
 
 ### `music_spaces`
 
-Spaces（インタラクティブな楽器とツール）の一覧表示、取得、名前変更、削除を行います。Space を作成するには、music_chat で Producer に内容を説明してください。
+Spaces（インタラクティブな楽器とツール）の一覧表示、取得、公開設定の変更、削除を行います。Space を作成するには、music_chat で Producer に内容を説明してください。
 
 | パラメーター | 型 | 必須 | 説明 |
 | :--- | :--- | :--- | :--- |
-| `action` | string | いいえ | アクション: "list"（既定値）、"get"、"rename"、または "delete"。Space は music_chat で作成します。 |
-| `id` | string | いいえ | "get"、"rename"、"delete" に使用する Space ID。 |
+| `action` | string | いいえ | アクション: "list"（既定値）、"get"、"privacy"、または "delete"。Space は music_chat で作成します。 |
+| `id` | string | いいえ | "get"、"privacy"、"delete" に使用する Space のバージョン ID（"list" の "id" フィールド）。 |
 | `include_files` | boolean | いいえ | 各 Space のソースファイルを含めます（既定値 false）。 |
 | `limit` | integer | いいえ | "list" で返す Space の最大数（既定値 20、最大 100）。 |
-| `name` | string | いいえ | "rename" の新しい名前。 |
 | `offset` | integer | いいえ | "list" でスキップする Space の数（既定値 0）。 |
+| `privacy` | string | いいえ | "privacy" の新しい公開設定: "public"、"unlisted"、または "private"。 |
 
 ### `music_upload`
 

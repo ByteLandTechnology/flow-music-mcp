@@ -153,7 +153,9 @@ impl MusicMcpServer {
     }
 
     /// Cancels a queued or running job and stops its server-side session job.
-    #[tool(description = "Cancel a queued or running Google Flow Music job.")]
+    #[tool(
+        description = "Cancel a queued or running Google Flow Music job. A queued job spends no credits. For a running job, the server keeps rendering the clips that a tool call already started, and spends their credits; the cancel stops the wait, the download, and the session."
+    )]
     async fn music_cancel(&self, Parameters(req): Parameters<JobIdParams>) -> CallToolResult {
         Self::format_result(self.service.cancel(&req.id).await)
     }
@@ -241,9 +243,9 @@ impl MusicMcpServer {
         Self::format_result(self.service.playlists(req).await)
     }
 
-    /// Lists, inspects, renames, or deletes Spaces.
+    /// Lists, inspects, changes the privacy of, or deletes Spaces.
     #[tool(
-        description = "List, get, rename, or delete Spaces (interactive instruments and tools). To create a Space, describe it to the Producer with music_chat."
+        description = "List, get, change the privacy of, or delete Spaces (interactive instruments and tools). To create a Space, describe it to the Producer with music_chat."
     )]
     async fn music_spaces(&self, Parameters(req): Parameters<SpacesParams>) -> CallToolResult {
         Self::format_result(self.service.spaces(req).await)
