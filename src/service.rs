@@ -139,7 +139,7 @@ impl MusicService {
                         chat::run_chat_job(&client, &db, job_params(&job)?, progress).await
                     }
                     JobKind::Video => {
-                        chat::run_video_job(&client, job_params(&job)?, progress).await
+                        chat::run_video_job(&client, &db, job_params(&job)?, progress).await
                     }
                 }
             })
@@ -261,7 +261,7 @@ impl MusicService {
         if req.action.as_deref() == Some("create") {
             let text = format!("video {}", req.clip_id.as_deref().unwrap_or(""));
             let job = self.enqueue(JobKind::Video, &text, &req).await?;
-            return Ok(json!({ "job": job }));
+            return Ok(serde_json::to_value(job)?);
         }
         chat::video_library(&self.client, &req).await
     }
@@ -341,17 +341,12 @@ impl MusicService {
             .iter()
             .find_map(|p| str_at(video, p))
             .ok_or_else(|| anyhow::anyhow!("Music video {} has no video file yet", id))?;
-        Ok(DownloadTarget {
-            id: id.to_string(),
-            name: str_at(video, "/title").unwrap_or_else(|| id.to_string()),
-            kind: "video".to_string(),
-            media: MediaKind::Video,
-            prompt: None,
-            session_id: str_at(video, "/conversation_id"),
-            session_title: None,
-            created_at: str_at(video, "/created_at"),
-            source: DownloadSource::PublicUrl(url),
-        })
+        Ok(download::video_target(
+            id,
+            url,
+            str_at(video, "/conversation_id"),
+            str_at(video, "/created_at"),
+        ))
     }
 
     /// Downloads the audio, video, or cover art of a clip, or a music video, and indexes it.

@@ -139,12 +139,13 @@
 
 ### `music_video`
 
-列出、获取、查看状态或删除音乐视频。操作 "create" 会为歌曲排队创建新视频（消耗额度）：类型 "music" 请求 Producer 制作完整的音乐视频，类型 "social" 制作简短的竖屏片段。
+列出、获取、查看状态或删除音乐视频。操作 "create" 会为歌曲排队创建新视频。类型 "social" 制作简短的 720p 竖屏片段，等待渲染完成并下载 MP4；服务器可能不收取额度。类型 "music" 请求 Producer 制作完整的音乐视频，会消耗额度，尚未在线上服务中验证。
 
 | 参数 | 类型 | 必需 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `action` | string | 否 | 操作："list"（默认）、"get"、"status"、"delete" 或 "create"（排队，消耗额度）。 |
 | `clip_id` | string | 否 | "create" 使用的歌曲片段 ID。 |
+| `download` | boolean | 否 | 等待 "social" 视频渲染完成并下载（默认 true）。 |
 | `id` | string | 否 | "get"、"status" 和 "delete" 使用的音乐视频 ID。 |
 | `instructions` | string | 否 | "music" 视频的额外指导，例如视觉风格。 |
 | `kind` | string | 否 | "create" 的视频类型："music"（默认，由 Producer 策划完整的音乐视频）或 "social"（简短的竖屏片段）。 |

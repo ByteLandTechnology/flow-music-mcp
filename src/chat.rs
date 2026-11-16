@@ -15,9 +15,15 @@ use std::time::Duration;
 
 use crate::client::MusicClient;
 use crate::db::MusicDb;
-use crate::generation::{TOOL_TIMEOUT, finish_clips};
-use crate::producer::{ToolRequest, clip_ids_in, run_chat, run_tool};
-use crate::queue::{JobResult, ProgressCallback};
+use crate::download::{download_target, video_target};
+use crate::generation::{RENDER_TIMEOUT, TOOL_TIMEOUT, finish_clips};
+use crate::producer::{
+    READ_ATTEMPTS, READ_RETRY_PAUSE, ToolRequest, clip_ids_in, run_chat, run_tool,
+};
+use crate::queue::{JobEvent, JobResult, ProgressCallback};
+
+/// Interval between music video status polls.
+const VIDEO_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Default maximum time for one Producer reply in seconds.
 const DEFAULT_CHAT_TIMEOUT_S: u64 = 900;
@@ -54,6 +60,8 @@ pub(crate) struct VideoParams {
     pub(crate) instructions: Option<String>,
     /// Existing session ID for "create". Omit to create a new session.
     pub(crate) session_id: Option<String>,
+    /// Wait for a "social" video to render and download it (default true).
+    pub(crate) download: Option<bool>,
     /// Maximum number of videos for "list" (default 20).
     pub(crate) limit: Option<u32>,
     /// Number of videos to skip for "list" (default 0).
@@ -112,9 +120,102 @@ pub(crate) async fn run_chat_job(
     .await
 }
 
+/// Polls the status of the music video job `video_id` until it completes, then returns its state.
+async fn wait_video_ready(
+    client: &MusicClient,
+    video_id: &str,
+    progress: &ProgressCallback,
+) -> Result<Value> {
+    let deadline = tokio::time::Instant::now() + RENDER_TIMEOUT;
+    let mut failures = 0;
+    loop {
+        match client.get(&format!("/music-video/{video_id}/status")).await {
+            Ok(res) => {
+                failures = 0;
+                let state = res.get("state").cloned().unwrap_or(Value::Null);
+                let status = state.get("status").and_then(Value::as_str).unwrap_or("");
+                if let Some(err) = state.get("error_message").and_then(Value::as_str) {
+                    anyhow::bail!("Music video {} failed: {}", video_id, err);
+                }
+                match status {
+                    "completed" => return Ok(state),
+                    "failed" | "error" | "cancelled" => {
+                        anyhow::bail!("Music video {} ended with status {}", video_id, status)
+                    }
+                    _ => {}
+                }
+                let stage = state
+                    .get("current_stage")
+                    .and_then(Value::as_str)
+                    .unwrap_or("queued");
+                progress(JobEvent::Progress(format!("rendering video: {stage}")));
+            }
+            Err(e) => {
+                failures += 1;
+                if failures >= READ_ATTEMPTS {
+                    return Err(e.context("Polling music video status failed"));
+                }
+                tokio::time::sleep(READ_RETRY_PAUSE).await;
+                continue;
+            }
+        }
+        if tokio::time::Instant::now() >= deadline {
+            anyhow::bail!("Timed out waiting for music video {} to render", video_id);
+        }
+        tokio::time::sleep(VIDEO_POLL_INTERVAL).await;
+    }
+}
+
+/// Waits for the social video `video_id`, downloads it when `download` is true, and builds the job result.
+async fn finish_video(
+    client: &MusicClient,
+    db: &MusicDb,
+    video_id: String,
+    session_id: Option<String>,
+    download: bool,
+    progress: &ProgressCallback,
+) -> Result<JobResult> {
+    let mut result = JobResult {
+        created: vec![video_id.clone()],
+        ..JobResult::default()
+    };
+    let mut payload = json!({ "session_id": session_id, "video_id": video_id });
+    if !download {
+        payload["next"] = json!(
+            "The video renders on the server. Use music_video with action \"status\", then music_download with kind \"video\"."
+        );
+        result.result = Some(payload);
+        return Ok(result);
+    }
+    let state = wait_video_ready(client, &video_id, progress).await?;
+    payload["video_url"] = state.get("final_video_url").cloned().unwrap_or(Value::Null);
+    payload["duration_s"] = state
+        .get("video_duration_s")
+        .cloned()
+        .unwrap_or(Value::Null);
+    payload["start_s"] = state.get("video_start_s").cloned().unwrap_or(Value::Null);
+    match state.get("final_video_url").and_then(Value::as_str) {
+        Some(url) => {
+            progress(JobEvent::Progress("downloading video".to_string()));
+            let target = video_target(&video_id, url.to_string(), session_id, None);
+            match download_target(client, db, target).await {
+                Ok(rec) => {
+                    result.files.push(rec.file_path);
+                    result.resources.push(rec.resource_uri);
+                }
+                Err(e) => payload["download_errors"] = json!([format!("{e:#}")]),
+            }
+        }
+        None => payload["download_errors"] = json!(["The finished video has no file URL"]),
+    }
+    result.result = Some(payload);
+    Ok(result)
+}
+
 /// Runs a `music_video` "create" job.
 pub(crate) async fn run_video_job(
     client: &MusicClient,
+    db: &MusicDb,
     req: VideoParams,
     progress: ProgressCallback,
 ) -> Result<JobResult> {
@@ -139,16 +240,19 @@ pub(crate) async fn run_video_job(
             let video_id = ["video_id", "videoId", "job_id"]
                 .iter()
                 .find_map(|k| outcome.content.get(*k).and_then(Value::as_str))
-                .map(str::to_string);
-            Ok(JobResult {
-                created: video_id.into_iter().collect(),
-                result: Some(json!({
-                    "session_id": outcome.conversation_id,
-                    "video": outcome.content,
-                    "next": "The video renders on the server. Use music_video with action \"list\" or \"status\", then music_download with kind \"video\".",
-                })),
-                ..JobResult::default()
-            })
+                .map(str::to_string)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("The video tool returned no video ID: {}", outcome.content)
+                })?;
+            finish_video(
+                client,
+                db,
+                video_id,
+                outcome.conversation_id,
+                req.download.unwrap_or(true),
+                &progress,
+            )
+            .await
         }
         "music" => {
             let extra = req

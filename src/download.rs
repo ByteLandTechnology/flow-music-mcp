@@ -246,6 +246,26 @@ pub(crate) fn clip_audio_target(clip: &serde_json::Value, format: &str) -> Resul
     })
 }
 
+/// Builds the download target of the music video `id` with the public file `url`.
+pub(crate) fn video_target(
+    id: &str,
+    url: String,
+    session_id: Option<String>,
+    created_at: Option<String>,
+) -> DownloadTarget {
+    DownloadTarget {
+        id: id.to_string(),
+        name: id.to_string(),
+        kind: "video".to_string(),
+        media: MediaKind::Video,
+        prompt: None,
+        session_id,
+        session_title: None,
+        created_at,
+        source: DownloadSource::PublicUrl(url),
+    }
+}
+
 /// Files, resource URIs, and error texts of a batch of downloads.
 #[derive(Debug, Default)]
 pub(crate) struct BatchDownload {

@@ -139,12 +139,13 @@ Queue a message to the Google Flow Music Producer agent. The Producer can write 
 
 ### `music_video`
 
-List, get, check status of, or delete music videos. Action "create" queues a new video for a song (spends credits): kind "music" asks the Producer for a full music video, and kind "social" makes a short vertical clip.
+List, get, check status of, or delete music videos. Action "create" queues a new video for a song. Kind "social" makes a short vertical 720p clip, waits for the render, and downloads the MP4; the server can make it without credits. Kind "music" asks the Producer for a full music video, spends credits, and is not yet verified against the live service.
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | `action` | string | no | Action: "list" (default), "get", "status", "delete", or "create" (queued, spends credits). |
 | `clip_id` | string | no | Song clip ID for "create". |
+| `download` | boolean | no | Wait for a "social" video to render and download it (default true). |
 | `id` | string | no | Music video ID for "get", "status", and "delete". |
 | `instructions` | string | no | Extra direction for a "music" video, for example the visual style. |
 | `kind` | string | no | Video type for "create": "music" (default, the Producer plans a full music video) or "social" (a short vertical clip). |

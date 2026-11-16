@@ -210,7 +210,7 @@ impl MusicMcpServer {
 
     /// Lists, inspects, or deletes music videos, or queues a new video.
     #[tool(
-        description = "List, get, check status of, or delete music videos. Action \"create\" queues a new video for a song (spends credits): kind \"music\" asks the Producer for a full music video, and kind \"social\" makes a short vertical clip. Video creation and video download are not yet verified against the live service."
+        description = "List, get, check status of, or delete music videos. Action \"create\" queues a new video for a song. Kind \"social\" makes a short vertical 720p clip, waits for the render, and downloads the MP4; the server can make it without credits. Kind \"music\" asks the Producer for a full music video, spends credits, and is not yet verified against the live service."
     )]
     async fn music_video(&self, Parameters(req): Parameters<VideoParams>) -> CallToolResult {
         Self::format_result(self.service.video(req).await)

@@ -22,10 +22,10 @@ const STREAM_SLICE_MS: u64 = 20_000;
 const CLIP_POLL_INTERVAL: Duration = Duration::from_secs(4);
 
 /// Number of attempts for one stream read or clip poll before the job fails.
-const READ_ATTEMPTS: u32 = 4;
+pub(crate) const READ_ATTEMPTS: u32 = 4;
 
 /// Pause between attempts of a failed stream read or clip poll.
-const READ_RETRY_PAUSE: Duration = Duration::from_secs(3);
+pub(crate) const READ_RETRY_PAUSE: Duration = Duration::from_secs(3);
 
 /// Reads one slice of a job stream and retries transient failures.
 ///

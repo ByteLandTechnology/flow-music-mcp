@@ -62,4 +62,4 @@ cargo build --release
 > `flow-music-mcp` 使用 Google Flow Music 的内部接口。这些接口可能会在不另行通知的情况下发生变化。生成类工具会消耗您 Google Flow Music 套餐中的额度。
 
 > [!NOTE]
-> 项目状态：npm 包和 GitHub Releases 尚未发布，目前请从源代码构建。`music_video` 的视频创建与视频下载尚未在线上服务中验证。
+> 项目状态：npm 包和 GitHub Releases 尚未发布，目前请从源代码构建。`music_video` 类型 "music" 的音乐视频创建尚未在线上服务中验证。
