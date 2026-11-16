@@ -60,6 +60,32 @@ pub(crate) struct MusicClient {
     engine: Arc<ChromeEngine>,
 }
 
+/// Rejects an API path that could leave its fixed route.
+///
+/// Tools put caller IDs into paths. The path part may hold only ASCII letters, digits,
+/// `-`, `_`, and `/`, with no empty segment. The query part may hold only ASCII letters,
+/// digits, `-`, `_`, `.`, `=`, and `&`. Thus `..`, `#`, `%`, and a second `?` never reach
+/// the browser, and an ID cannot select another endpoint.
+fn check_api_path(path: &str) -> Result<()> {
+    let (route, query) = path.split_once('?').unwrap_or((path, ""));
+    let route_ok = route.starts_with('/')
+        && route[1..].split('/').all(|seg| {
+            !seg.is_empty()
+                && seg
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        });
+    let query_ok = query
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'=' | b'&'));
+    anyhow::ensure!(
+        route_ok && query_ok,
+        "Invalid ID or API path '{}'. IDs may hold only letters, digits, '-', and '_'.",
+        path
+    );
+    Ok(())
+}
+
 /// Returns a non-empty string field of `value`.
 fn str_field(value: &Value, key: &str) -> Option<String> {
     value
@@ -124,6 +150,7 @@ impl MusicClient {
 
     /// Sends `method` to API `path` and returns the JSON body of a successful response.
     pub(crate) async fn api(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value> {
+        check_api_path(path)?;
         let args = json!([method, path, body.unwrap_or(Value::Null)]);
         let res = self.call("api", args, Duration::from_secs(60)).await?;
         let status = res.get("status").and_then(Value::as_u64).unwrap_or(0);
@@ -158,6 +185,7 @@ impl MusicClient {
         max_ms: u64,
         tool_progress: bool,
     ) -> Result<StreamChunk> {
+        check_api_path(&format!("/messages/{job_id}/stream"))?;
         let args = json!([job_id, last_id, max_ms, tool_progress]);
         let timeout = Duration::from_millis(max_ms + 30_000);
         let res = self.call("readStream", args, timeout).await?;
@@ -194,6 +222,7 @@ impl MusicClient {
         bytes: &[u8],
         fields: Value,
     ) -> Result<Value> {
+        check_api_path(path)?;
         let args = json!([
             path,
             field,
@@ -218,6 +247,7 @@ impl MusicClient {
 
     /// Downloads the API resource at `path`.
     pub(crate) async fn fetch_binary(&self, path: &str) -> Result<BinaryResponse> {
+        check_api_path(path)?;
         let res = self
             .call("fetchBinary", json!([path]), Duration::from_secs(300))
             .await?;

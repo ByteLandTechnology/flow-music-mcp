@@ -21,6 +21,38 @@ const STREAM_SLICE_MS: u64 = 20_000;
 /// Interval between clip status polls.
 const CLIP_POLL_INTERVAL: Duration = Duration::from_secs(4);
 
+/// Number of attempts for one stream read or clip poll before the job fails.
+const READ_ATTEMPTS: u32 = 4;
+
+/// Pause between attempts of a failed stream read or clip poll.
+const READ_RETRY_PAUSE: Duration = Duration::from_secs(3);
+
+/// Reads one slice of a job stream and retries transient failures.
+///
+/// The server keeps the stream, and `last_id` resumes it, thus a retry loses no events.
+/// A failed paid job would spend credits again on retry, so a short glitch must not fail it.
+async fn read_slice(
+    client: &MusicClient,
+    job_id: &str,
+    last_id: &str,
+    tool_progress: bool,
+) -> Result<crate::client::StreamChunk> {
+    let mut attempt = 1;
+    loop {
+        match client
+            .read_stream(job_id, last_id, STREAM_SLICE_MS, tool_progress)
+            .await
+        {
+            Ok(chunk) => return Ok(chunk),
+            Err(_) if attempt < READ_ATTEMPTS => {
+                attempt += 1;
+                tokio::time::sleep(READ_RETRY_PAUSE).await;
+            }
+            Err(e) => return Err(e.context(format!("Reading job stream {job_id} failed"))),
+        }
+    }
+}
+
 /// Request for one direct Producer tool call.
 pub(crate) struct ToolRequest<'a> {
     /// Producer tool name, for example `audio__create_song`.
@@ -156,9 +188,7 @@ pub(crate) async fn run_tool(
     let mut last_id = "0".to_string();
     let mut conversation_id = req.conversation_id.map(str::to_string);
     loop {
-        let chunk = client
-            .read_stream(&job_id, &last_id, STREAM_SLICE_MS, false)
-            .await?;
+        let chunk = read_slice(client, &job_id, &last_id, false).await?;
         last_id = chunk.last_id.clone();
         for event in &chunk.events {
             match event.event.as_str() {
@@ -246,9 +276,7 @@ pub(crate) async fn run_chat(
     let deadline = Instant::now() + timeout;
     let mut last_id = "0".to_string();
     loop {
-        let chunk = client
-            .read_stream(&job_id, &last_id, STREAM_SLICE_MS, true)
-            .await?;
+        let chunk = read_slice(client, &job_id, &last_id, true).await?;
         last_id = chunk.last_id.clone();
         for event in &chunk.events {
             collect_chat_event(event, &mut out, progress)?;
@@ -379,8 +407,22 @@ pub(crate) async fn wait_clips_ready(
     progress: &ProgressCallback,
 ) -> Result<Vec<Value>> {
     let deadline = Instant::now() + timeout;
+    let mut failures = 0;
     loop {
-        let clips = fetch_clips(client, ids).await?;
+        let clips = match fetch_clips(client, ids).await {
+            Ok(c) => {
+                failures = 0;
+                c
+            }
+            Err(e) => {
+                failures += 1;
+                if failures >= READ_ATTEMPTS {
+                    return Err(e.context("Polling clip status failed"));
+                }
+                tokio::time::sleep(READ_RETRY_PAUSE).await;
+                continue;
+            }
+        };
         if let Some(bad) = clips
             .iter()
             .find(|c| matches!(duration_status(c), "failed" | "error"))
