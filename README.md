@@ -60,3 +60,6 @@ Add the server to your MCP stdio client configuration (`mcpServers`):
 
 > [!IMPORTANT]
 > `flow-music-mcp` uses internal Google Flow Music interfaces. These interfaces can change without notice. Generation tools spend credits of your Google Flow Music plan.
+
+> [!NOTE]
+> Project status: the npm packages and GitHub releases are not published yet, so build from source for now. `music_video` creation and video download, and the server-side stop of a running job in `music_cancel`, are not yet verified against the live service.
