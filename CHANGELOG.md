@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/ByteLandTechnology/flow-music-mcp/compare/v1.0.0...v1.1.0) (2026-11-17)
+
+
+### Features
+
+* add instance lock and cross-platform process control ([e504116](https://github.com/ByteLandTechnology/flow-music-mcp/commit/e504116715c36c0e050b95c1b3b04a340dfdc340))
+* **flow:** show a sign-in hint during cli login ([55a6950](https://github.com/ByteLandTechnology/flow-music-mcp/commit/55a69504869387e6d6c9571e93e8f07ce83ae83f))
+* **xtask:** run windows clippy with cargo xwin when available ([e4dc6ff](https://github.com/ByteLandTechnology/flow-music-mcp/commit/e4dc6ffb51fa65a8fbed3532618e0eea23c56089))
+
+
+### Bug Fixes
+
+* **flow:** stop serve on ctrl-c without waiting for stdin ([a0ae1d0](https://github.com/ByteLandTechnology/flow-music-mcp/commit/a0ae1d0b5eab03bba1cc1bca62f7f68208ad54f3))
+
 ## [1.0.0](https://github.com/ByteLandTechnology/flow-music-mcp/compare/v0.2.0...v1.0.0) (2026-11-17)
 
 

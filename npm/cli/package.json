@@ -1,6 +1,6 @@
 {
   "name": "@flow-music-mcp/cli",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Google Flow Music MCP server for song generation, edits, stems, playlists, and downloads over Chrome CDP.",
   "license": "MIT",
   "repository": {
@@ -29,11 +29,11 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@flow-music-mcp/darwin-arm64": "1.0.0",
-    "@flow-music-mcp/darwin-x64": "1.0.0",
-    "@flow-music-mcp/linux-arm64": "1.0.0",
-    "@flow-music-mcp/linux-x64": "1.0.0",
-    "@flow-music-mcp/win32-arm64": "1.0.0",
-    "@flow-music-mcp/win32-x64": "1.0.0"
+    "@flow-music-mcp/darwin-arm64": "1.1.0",
+    "@flow-music-mcp/darwin-x64": "1.1.0",
+    "@flow-music-mcp/linux-arm64": "1.1.0",
+    "@flow-music-mcp/linux-x64": "1.1.0",
+    "@flow-music-mcp/win32-arm64": "1.1.0",
+    "@flow-music-mcp/win32-x64": "1.1.0"
   }
 }
