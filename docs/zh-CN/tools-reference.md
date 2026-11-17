@@ -18,7 +18,7 @@ flow-music-mcp [OPTIONS] <COMMAND>
 | `login [--timeout <SECS>] [--force] [--json]` | 打开可见的 Chrome 窗口进行 Google 登录，并等待登录完成。`--timeout` 设置最长等待秒数（默认 `180`，范围 `15` 到 `3600`）。`--force` 会先删除已保存的 Chrome 配置文件。 |
 | `status [--json]` | 显示登录状态。若存在已保存的配置文件，此子命令会启动无头 Chrome。 |
 | `logout [--json]` | 删除 `<home>/chrome-profile`。 |
-| `doctor [--json]` | 检查 Chrome 二进制文件、`<home>` 与文件权限、配置文件锁以及登录状态。 |
+| `doctor [--json]` | 检查 Chrome 二进制文件、`<home>` 与文件权限、单实例锁以及登录状态。 |
 
 `login`、`status` 和 `logout` 使用与 `music_login` 相同的操作，并为每个结果字段输出一行 `key: value`。加上 `--json` 时，输出 `music_login` 的结果对象。`doctor` 为每项检查输出一行，状态为 `ok`、`warn`、`fail` 或 `skip`。
 

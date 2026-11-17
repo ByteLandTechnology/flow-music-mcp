@@ -27,6 +27,12 @@ Google Flow Music は、`www.flowmusic.app` 上の Supabase Cookie（`sb-sb-auth
 
 アクセストークンは約 1 時間で期限切れになります。ランタイムが期限切れのトークンを検出したとき、または API が HTTP 401 を返したとき、クライアントはページを再読み込みします。その後、ページのクライアントがトークンを更新し、クライアントはリクエストを 1 回だけ再送信します。
 
+### 単一インスタンスロックと孤立 Chrome
+
+- Chrome を起動する前に、`flow-music-mcp` は `<home>/flow-music-mcp.lock` に排他ロックを取得し、プロセス終了まで保持します。プロセスが終了すると（クラッシュ時も含む）、OS がロックを解放します。
+- 別のプロセスがロックを保持している場合、Chrome の起動、`login`、`status`、`logout`、および `music_login` の `logout` はエラーになります。`doctor` は警告を表示します。
+- ロックを保持している間、`<home>/chrome-profile` 上でこのプロセスが起動していない Chrome プロセスは孤立プロセスです。`flow-music-mcp` はまず通常終了を要求し（Unix では `SIGINT`、Windows では `taskkill`）、3 秒後も残っている場合は強制終了します。
+
 ## ページからのリクエスト
 
 内部 API は `https://www.flowmusic.app/__api/...` にあります。各リクエストには `Authorization: Bearer <access token>` が付きます。ランタイムはすべてのリクエストをページから `fetch` で送信するため、リクエストはウェブサイトと同じオリジン、Cookie、ブラウザー識別情報を持ちます。
@@ -63,6 +69,7 @@ Rust 側は固定の API パスのみを使用します。呼び出し元が選�
 | パス | 内容 | Unix パーミッション |
 | :--- | :--- | :--- |
 | `chrome-profile/` | セッションを含む永続的な Chrome プロファイル | `0700` |
+| `flow-music-mcp.lock` | Chrome を起動できる間にプロセスが保持する単一インスタンスロック | `0600` |
 | `flow-music-mcp.db` | ダウンロードの SQLite インデックス | `0600` |
 | `downloads/` | ダウンロードしたオーディオ、動画、画像 | `0700` ディレクトリ |
 

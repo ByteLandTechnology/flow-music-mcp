@@ -18,7 +18,7 @@ flow-music-mcp [OPTIONS] <COMMAND>
 | `login [--timeout <SECS>] [--force] [--json]` | Open a visible Chrome window for Google Sign-In and wait until sign-in completes. `--timeout` sets the maximum wait in seconds (default `180`, range `15` to `3600`). `--force` deletes the saved Chrome profile first. |
 | `status [--json]` | Show the sign-in status. If a saved profile exists, this subcommand starts headless Chrome. |
 | `logout [--json]` | Delete `<home>/chrome-profile`. |
-| `doctor [--json]` | Check the Chrome binary, `<home>` and file permissions, the profile lock, and the sign-in status. |
+| `doctor [--json]` | Check the Chrome binary, `<home>` and file permissions, the instance lock, and the sign-in status. |
 
 `login`, `status`, and `logout` use the same actions as `music_login`. They write one `key: value` line for each result field. With `--json`, they write the `music_login` result object. `doctor` writes one line for each check with the status `ok`, `warn`, `fail`, or `skip`.
 

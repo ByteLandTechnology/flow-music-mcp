@@ -27,6 +27,12 @@ Google Flow Music 将会话保存在 `www.flowmusic.app` 上的 Supabase Cookie�
 
 访问令牌大约在一小时后过期。当运行时发现令牌过期，或 API 返回 HTTP 401 时，客户端会重新加载页面。随后页面客户端刷新令牌，客户端再重新发送一次请求。
 
+### 单实例锁与孤儿 Chrome
+
+- 启动 Chrome 前，`flow-music-mcp` 会对 `<home>/flow-music-mcp.lock` 加独占锁，并持有到进程结束。进程结束时（包括崩溃），操作系统会释放该锁。
+- 若锁已被其他进程持有，启动 Chrome、`login`、`status`、`logout` 以及 `music_login` 的 `logout` 操作都会报错，`doctor` 会显示警告。
+- 持有锁期间，`<home>/chrome-profile` 上任何不是由本进程启动的 Chrome 进程都视为孤儿进程。`flow-music-mcp` 会先请求其正常退出（Unix 上发送 `SIGINT`，Windows 上执行 `taskkill`），3 秒后仍未退出则强制结束。
+
 ## 来自页面的请求
 
 内部 API 位于 `https://www.flowmusic.app/__api/...`。每个请求都携带 `Authorization: Bearer <access token>`。运行时从页面使用 `fetch` 发送所有请求，因此这些请求与网站具有相同的源、Cookie 和浏览器身份。
@@ -63,6 +69,7 @@ Rust 端只使用固定的 API 路径。任何工具都不能向调用方指定�
 | 路径 | 内容 | Unix 权限 |
 | :--- | :--- | :--- |
 | `chrome-profile/` | 包含会话的持久化 Chrome 配置文件 | `0700` |
+| `flow-music-mcp.lock` | 进程可启动 Chrome 期间持有的单实例锁 | `0600` |
 | `flow-music-mcp.db` | 下载文件的 SQLite 索引 | `0600` |
 | `downloads/` | 下载的音频、视频和图片 | `0700` 目录 |
 

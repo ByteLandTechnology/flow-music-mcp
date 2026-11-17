@@ -27,6 +27,12 @@ Google Flow Music keeps its session in Supabase cookies (`sb-sb-auth-token.0`, `
 
 The access token expires after about one hour. When the runtime finds an expired token, or when the API returns HTTP 401, the client reloads the page. The page client then refreshes the token, and the client sends the request again once.
 
+### Single-instance lock and orphaned Chrome
+
+- Before Chrome starts, `flow-music-mcp` takes an exclusive lock on `<home>/flow-music-mcp.lock` and keeps it until the process stops. The operating system releases the lock when the process stops, also after a crash.
+- If another process holds the lock, the Chrome start, `login`, `status`, `logout`, and `music_login` with `logout` fail with an error. `doctor` shows a warning.
+- While `flow-music-mcp` holds the lock, each Chrome process on `<home>/chrome-profile` that it did not start is orphaned. `flow-music-mcp` asks these processes to stop (`SIGINT` on Unix, `taskkill` on Windows) and stops them by force after 3 seconds.
+
 ## Requests from the page
 
 The internal API is at `https://www.flowmusic.app/__api/...`. Each request carries `Authorization: Bearer <access token>`. The runtime sends all requests with `fetch` from the page, thus the requests have the same origin, cookies, and browser identity as the website.
@@ -63,6 +69,7 @@ All data is under `<home>` (default `~/.flow-music-mcp`):
 | Path | Content | Unix permissions |
 | :--- | :--- | :--- |
 | `chrome-profile/` | Persistent Chrome profile with the session | `0700` |
+| `flow-music-mcp.lock` | Single-instance lock that a process holds while it can start Chrome | `0600` |
 | `flow-music-mcp.db` | SQLite index of downloads | `0600` |
 | `downloads/` | Downloaded audio, video, and images | `0700` directory |
 

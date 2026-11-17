@@ -18,7 +18,7 @@ flow-music-mcp [OPTIONS] <COMMAND>
 | `login [--timeout <SECS>] [--force] [--json]` | Google ログイン用に可視の Chrome ウィンドウを開き、ログインの完了まで待機します。`--timeout` は最大待機秒数です（既定値 `180`、範囲 `15`〜`3600`）。`--force` は保存済みの Chrome プロファイルを先に削除します。 |
 | `status [--json]` | ログイン状態を表示します。保存済みのプロファイルがある場合は、ヘッドレス Chrome を起動します。 |
 | `logout [--json]` | `<home>/chrome-profile` を削除します。 |
-| `doctor [--json]` | Chrome バイナリ、`<home>` とファイル権限、プロファイルロック、ログイン状態を確認します。 |
+| `doctor [--json]` | Chrome バイナリ、`<home>` とファイル権限、インスタンスロック、ログイン状態を確認します。 |
 
 `login`、`status`、`logout` は `music_login` と同じアクションを使用し、結果フィールドごとに `key: value` を 1 行ずつ出力します。`--json` を付けると、`music_login` の結果オブジェクトを出力します。`doctor` はチェックごとに 1 行を出力し、ステータスは `ok`、`warn`、`fail`、`skip` のいずれかです。
 
