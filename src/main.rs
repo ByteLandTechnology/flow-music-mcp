@@ -16,6 +16,7 @@ mod download;
 mod edits;
 mod engine;
 mod generation;
+mod http;
 mod instance;
 mod library;
 mod mcp;

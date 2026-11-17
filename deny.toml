@@ -26,8 +26,6 @@ allow-wildcard-paths = true
 skip = [
   { crate = "base64@0.22.1", reason = "reqwest 0.12 requires base64 0.22 while hyper-util 0.1 uses base64 0.23" },
   { crate = "getrandom@0.2.17", reason = "ring 0.17 requires getrandom 0.2 while tempfile and uuid use getrandom 0.4" },
-  { crate = "getrandom@0.3.4", reason = "rand_core 0.9 via tungstenite 0.26 requires getrandom 0.3 while tempfile and uuid use getrandom 0.4" },
-  { crate = "r-efi@5.3.0", reason = "getrandom 0.3 requires r-efi 5.3 while getrandom 0.4 requires r-efi 6.0" },
   { crate = "syn@2.0.119", reason = "tracing-attributes 0.1 and windows-core 0.62 macros require syn 2 while tokio and serde macros use syn 3" },
   { crate = "windows-sys@0.52.0", reason = "ring 0.17 requires windows-sys 0.52 while tokio and tempfile use windows-sys 0.61" },
 ]

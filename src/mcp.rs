@@ -38,7 +38,7 @@ const PATIENCE_MS: u64 = 45_000;
 /// Maximum resource entries returned per `resources/list` page.
 const RESOURCE_PAGE_SIZE: usize = 100;
 
-/// MCP stdio server that routes tool calls to [`MusicService`].
+/// MCP server that routes tool calls to [`MusicService`] over standard input and output or HTTP.
 #[derive(Clone)]
 pub(crate) struct MusicMcpServer {
     /// Application service instance.

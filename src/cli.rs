@@ -7,6 +7,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use std::future::Future;
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,6 +16,7 @@ use crate::auth::{self, LoginParams};
 use crate::chrome;
 use crate::config::{self, Settings};
 use crate::engine::ChromeEngine;
+use crate::http::{HttpOptions, serve_http};
 use crate::instance;
 use crate::mcp::MusicMcpServer;
 use crate::platform;
@@ -78,8 +80,21 @@ pub(crate) struct Cli {
 /// Subcommands of `flow-music-mcp`.
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Serve the MCP tools over standard input and output
-    Serve,
+    /// Serve the MCP tools over standard input and output, or over Streamable HTTP with --http
+    Serve {
+        /// Serve MCP over Streamable HTTP at http://ADDR/mcp instead of standard input and output (for example 127.0.0.1:8765)
+        #[arg(long, value_name = "IP:PORT", env = "FLOW_MUSIC_MCP_HTTP")]
+        http: Option<SocketAddr>,
+        /// Require this bearer token on each HTTP request; required when the address is not a loopback address
+        #[arg(
+            long,
+            value_name = "TOKEN",
+            env = "FLOW_MUSIC_MCP_HTTP_TOKEN",
+            hide_env_values = true,
+            value_parser = clap::builder::NonEmptyStringValueParser::new()
+        )]
+        http_token: Option<String>,
+    },
     /// Sign in to Google Flow Music in a visible Chrome window and wait until sign-in completes
     Login {
         /// Set the maximum wait time for sign-in in seconds (15 to 3600)
@@ -411,13 +426,17 @@ async fn run_doctor(as_json: bool) -> Result<()> {
     Ok(())
 }
 
-/// Starts the stdio MCP server and shuts down Chrome on exit or on a shutdown signal.
-async fn run_serve() -> Result<()> {
+/// Starts the MCP server over standard input and output, or over HTTP when `http` is set,
+/// and shuts down Chrome on exit or on a shutdown signal.
+async fn run_serve(http: Option<HttpOptions>) -> Result<()> {
     let engine = ChromeEngine::new();
     let server = MusicMcpServer::new(MusicService::new(Arc::clone(&engine)));
-    let result = tokio::select! {
-        res = server.serve_stdio() => res,
-        _ = wait_shutdown_signal() => Ok(()),
+    let result = match http {
+        None => tokio::select! {
+            res = server.serve_stdio() => res,
+            _ = wait_shutdown_signal() => Ok(()),
+        },
+        Some(options) => serve_http(server, options, wait_shutdown_signal()).await,
     };
     engine.shutdown().await;
     result
@@ -432,7 +451,13 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
         pause_ms: cli.pause,
     });
     match cli.command {
-        Command::Serve => run_serve().await,
+        Command::Serve { http, http_token } => {
+            run_serve(http.map(|addr| HttpOptions {
+                addr,
+                token: http_token,
+            }))
+            .await
+        }
         Command::Login {
             timeout,
             force,
