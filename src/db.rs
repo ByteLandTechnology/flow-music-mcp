@@ -9,13 +9,12 @@ use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension, params, types::Value as SqlValue};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::fs::OpenOptions;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::db_path;
-use crate::private_fs::{create_private_dir_all, set_private_file_permissions};
+use crate::platform::{create_private_dir_all, open_private_file, set_private_file_permissions};
 
 /// MCP resource URI prefix for a download record selected by integer ID.
 pub(crate) const DOWNLOAD_RESOURCE_PREFIX: &str = "music://downloads/";
@@ -261,16 +260,8 @@ fn ensure_private_db_file(path: &Path) -> Result<()> {
         .unwrap_or_else(|| Path::new("."));
     create_private_dir_all(parent)?;
 
-    let mut opts = OpenOptions::new();
-    opts.create(true).read(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        opts.mode(0o600);
-    }
-    opts.open(path)
+    open_private_file(path)
         .with_context(|| format!("Failed to open SQLite database at {}", path.display()))?;
-    set_private_file_permissions(path);
     Ok(())
 }
 

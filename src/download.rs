@@ -19,7 +19,7 @@ use crate::db::{DownloadRecord, MusicDb, NewDownloadRecord};
 use crate::media_files::{
     MediaKind, disambiguate_dest, natural_filename, resolve_stored_path, validate_downloaded_file,
 };
-use crate::private_fs::create_private_dir_all;
+use crate::platform::create_private_dir_all;
 
 /// Location of the bytes of one download.
 #[derive(Debug, Clone)]

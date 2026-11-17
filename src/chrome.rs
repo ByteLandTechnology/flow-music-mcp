@@ -11,7 +11,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::auth::is_music_session_cookie;
 use crate::cdp::{CdpConnection, fetch_json_version};
 use crate::config::{chrome_profile_dir, cli_chrome_path, configured_cdp_port};
-use crate::private_fs::create_private_dir_all;
+use crate::instance::{acquire_instance_lock, stop_orphan_chrome};
+use crate::platform::{create_private_dir_all, focus_process, interrupt_process};
 
 /// Owned Chrome child process backed by the persistent `0700` user-data directory.
 pub(crate) struct ManagedChrome {
@@ -94,193 +95,39 @@ async fn wait_profile_unlocked(profile_dir: &Path, limit: Duration) {
     }
 }
 
-/// Removes Chrome singleton lock files from `profile_dir`.
-#[cfg(unix)]
+/// Removes Chrome singleton lock files from `profile_dir` (Chrome creates them on Unix).
 fn remove_singleton_artifacts(profile_dir: &Path) {
     for name in ["SingletonLock", "SingletonSocket", "SingletonCookie"] {
         let _ = std::fs::remove_file(profile_dir.join(name));
     }
 }
 
-/// State of the Chrome `SingletonLock` in a profile directory.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ProfileLock {
-    /// No `SingletonLock` exists.
-    Free,
-    /// A `SingletonLock` exists, but no live Chrome process for this profile owns it.
-    #[cfg(unix)]
-    Stale,
-    /// An orphaned Chrome process (parent PID 1 or lower) holds the profile.
-    #[cfg(unix)]
-    Orphan(u32),
-    /// A Chrome process with a live parent, such as another `flow-music-mcp`, holds the profile.
-    #[cfg(unix)]
-    InUse(u32),
-}
-
-impl ProfileLock {
-    /// Returns `true` when a Chrome process with a live parent holds the profile.
-    pub(crate) fn is_in_use(self) -> bool {
-        #[cfg(unix)]
-        {
-            matches!(self, Self::InUse(_))
-        }
-        #[cfg(not(unix))]
-        {
-            false
-        }
-    }
-}
-
-/// Reads the `SingletonLock` of `profile_dir` and classifies its owner process.
-#[cfg(unix)]
-pub(crate) async fn read_profile_lock(profile_dir: &Path) -> ProfileLock {
-    let lock_path = profile_dir.join("SingletonLock");
-    if std::fs::symlink_metadata(&lock_path).is_err() {
-        return ProfileLock::Free;
-    }
-    let parsed_pid = std::fs::read_link(&lock_path).ok().and_then(|target| {
-        target
-            .to_string_lossy()
-            .rsplit('-')
-            .next()
-            .and_then(|s| s.parse::<u32>().ok())
-            .filter(|&p| p > 0)
-    });
-    let Some(pid) = parsed_pid else {
-        return ProfileLock::Stale;
-    };
-
-    let ps_out = tokio::process::Command::new("/bin/ps")
-        .arg("-p")
-        .arg(pid.to_string())
-        .arg("-o")
-        .arg("ppid=,args=")
-        .stdin(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .output()
-        .await;
-    let Ok(output) = ps_out else {
-        return ProfileLock::Stale;
-    };
-    if !output.status.success() {
-        return ProfileLock::Stale;
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let Some((ppid_str, args_str)) = stdout.trim().split_once(char::is_whitespace) else {
-        return ProfileLock::Stale;
-    };
-    if !args_str.contains(profile_dir.to_string_lossy().as_ref()) {
-        return ProfileLock::Stale;
-    }
-    let ppid = ppid_str.trim().parse::<u32>().unwrap_or(0);
-    if ppid <= 1 {
-        ProfileLock::Orphan(pid)
-    } else {
-        ProfileLock::InUse(pid)
-    }
-}
-
-/// Reports a free profile on platforms without Unix `SingletonLock` symlinks.
-#[cfg(not(unix))]
-pub(crate) async fn read_profile_lock(_profile_dir: &Path) -> ProfileLock {
-    ProfileLock::Free
-}
-
-/// Sends `signal` (for example `-INT` or `-KILL`) to process `pid` with `/bin/kill`.
-#[cfg(unix)]
-async fn send_signal(signal: &str, pid: u32) {
-    let _ = tokio::process::Command::new("/bin/kill")
-        .arg(signal)
-        .arg(pid.to_string())
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .await;
-}
-
-/// Ensures `profile_dir` exists with `0700` permissions and clears stale lock files.
+/// Takes the `<home>` lock, stops orphaned Chrome, and prepares `profile_dir` with `0700` permissions.
 async fn prepare_profile_dir(profile_dir: &Path) -> Result<()> {
+    acquire_instance_lock()?;
+    stop_orphan_chrome(profile_dir).await?;
     create_private_dir_all(profile_dir)?;
+    remove_singleton_artifacts(profile_dir);
     let _ = std::fs::remove_file(profile_dir.join("DevToolsActivePort"));
-
-    #[cfg(unix)]
-    match read_profile_lock(profile_dir).await {
-        ProfileLock::Free => {}
-        ProfileLock::Stale => remove_singleton_artifacts(profile_dir),
-        ProfileLock::Orphan(pid) => {
-            let lock_path = profile_dir.join("SingletonLock");
-            send_signal("-INT", pid).await;
-            wait_profile_unlocked(profile_dir, Duration::from_secs(3)).await;
-            if std::fs::symlink_metadata(&lock_path).is_ok() {
-                send_signal("-KILL", pid).await;
-                wait_profile_unlocked(profile_dir, Duration::from_secs(1)).await;
-            }
-            remove_singleton_artifacts(profile_dir);
-            let _ = std::fs::remove_file(profile_dir.join("DevToolsActivePort"));
-        }
-        ProfileLock::InUse(pid) => anyhow::bail!(
-            "Chrome profile at {} is already in use by another running flow-music-mcp process (Chrome PID {})",
-            profile_dir.display(),
-            pid
-        ),
-    }
-
     Ok(())
 }
 
-/// Sends an interrupt signal to `child`, waits up to `wait_limit`, and force-kills if needed.
+/// Asks `child` to stop normally, waits up to `wait_limit`, and force-kills it if needed.
 async fn stop_child_gracefully(child: &mut tokio::process::Child, wait_limit: Duration) {
     if !matches!(child.try_wait(), Ok(None)) {
         return;
     }
 
-    #[cfg(unix)]
-    if let Some(pid) = child.id() {
-        let _ = tokio::process::Command::new("/bin/kill")
-            .arg("-INT")
-            .arg(pid.to_string())
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .await;
+    if let Some(pid) = child.id()
+        && interrupt_process(pid)
+    {
         let _ = tokio::time::timeout(wait_limit, child.wait()).await;
     }
-
-    #[cfg(not(unix))]
-    let _ = wait_limit;
 
     if matches!(child.try_wait(), Ok(None)) {
         let _ = child.kill().await;
         let _ = child.wait().await;
     }
-}
-
-/// Activates the Chrome window for process `pid` so the user sees it during sign-in.
-fn focus_chrome_process(pid: u32) {
-    #[cfg(target_os = "macos")]
-    {
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            let script = format!(
-                "ObjC.import('AppKit'); const a = $.NSRunningApplication.runningApplicationWithProcessIdentifier({pid}); if (!a.isNil()) a.activateWithOptions(3);"
-            );
-            let _ = tokio::process::Command::new("/usr/bin/osascript")
-                .arg("-l")
-                .arg("JavaScript")
-                .arg("-e")
-                .arg(script)
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                .await;
-        });
-    }
-    #[cfg(not(target_os = "macos"))]
-    let _ = pid;
 }
 
 impl ManagedChrome {
@@ -404,10 +251,9 @@ impl LoginChrome {
     pub(crate) async fn launch(start_url: &str) -> Result<Self> {
         let chrome = resolve_chrome_binary()?;
         let profile_dir = chrome_profile_dir();
-        if profile_dir.exists() {
-            let _ = tokio::fs::remove_dir_all(&profile_dir).await;
-        }
         prepare_profile_dir(&profile_dir).await?;
+        let _ = tokio::fs::remove_dir_all(&profile_dir).await;
+        create_private_dir_all(&profile_dir)?;
 
         let initial_url = if start_url.trim().is_empty() {
             "about:blank"
@@ -433,7 +279,7 @@ impl LoginChrome {
             .with_context(|| format!("Failed to launch Chrome at {}", chrome.display()))?;
 
         if let Some(pid) = child.id() {
-            focus_chrome_process(pid);
+            focus_process(pid);
         }
 
         Ok(Self {

@@ -316,8 +316,9 @@ impl ChromeEngine {
             .unwrap_or_else(|| DEFAULT_CHROME_UA.to_string())
     }
 
-    /// Stops Chrome processes and deletes `<home>/chrome-profile`.
+    /// Takes the `<home>` lock, stops Chrome processes, and deletes `<home>/chrome-profile`.
     pub(crate) async fn clear_session(&self) -> Result<()> {
+        crate::instance::acquire_instance_lock()?;
         let _guard = self.ensure_lock.lock().await;
         let login = self.login_chrome.lock().await.take();
         let active = self.inner.lock().await.take();

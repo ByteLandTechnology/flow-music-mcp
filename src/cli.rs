@@ -12,10 +12,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::auth::{self, LoginParams};
-use crate::chrome::{self, ProfileLock};
+use crate::chrome;
 use crate::config::{self, Settings};
 use crate::engine::ChromeEngine;
+use crate::instance;
 use crate::mcp::MusicMcpServer;
+use crate::platform;
 use crate::service::MusicService;
 
 /// Largest pause bound in seconds that `--pause` accepts.
@@ -102,7 +104,7 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Check the Chrome binary, the data directory, the profile lock, and the sign-in status
+    /// Check the Chrome binary, the data directory, the instance lock, and the sign-in status
     Doctor {
         /// Write the result as JSON
         #[arg(long)]
@@ -180,8 +182,9 @@ fn login_params(action: &str) -> LoginParams {
     }
 }
 
-/// Runs one `music_login` action in a new `ChromeEngine` and returns the tool result.
+/// Takes the `<home>` lock, runs one `music_login` action in a new `ChromeEngine`, and returns the tool result.
 async fn run_login_action(params: LoginParams) -> Result<Value> {
+    instance::acquire_instance_lock()?;
     let engine = ChromeEngine::new();
     run_with_engine(&engine, auth::handle_login(&engine, params)).await
 }
@@ -270,17 +273,21 @@ async fn check_chrome() -> Value {
 }
 
 /// Checks that the Unix permission bits of `path` are `expected`.
-#[cfg(unix)]
 fn check_mode(name: &str, path: &Path, expected: u32) -> Value {
-    use std::os::unix::fs::PermissionsExt;
-    match std::fs::metadata(path) {
-        Err(_) => check(
+    if !path.exists() {
+        return check(
             name,
             "skip",
             format!("{} does not exist yet", path.display()),
+        );
+    }
+    match platform::file_mode(path) {
+        None => check(
+            name,
+            "skip",
+            "Unix permission bits do not apply on this platform",
         ),
-        Ok(meta) => {
-            let mode = meta.permissions().mode() & 0o777;
+        Some(mode) => {
             let status = if mode == expected { "ok" } else { "fail" };
             check(
                 name,
@@ -313,52 +320,57 @@ fn check_home() -> Vec<Value> {
         }
         Ok(_) => check("home", "ok", home.display().to_string()),
     };
-    #[cfg(unix)]
-    {
-        vec![
-            home_check,
-            check_mode("chrome-profile", &config::chrome_profile_dir(), 0o700),
-            check_mode("flow-music-mcp.db", &config::db_path(), 0o600),
-        ]
-    }
-    #[cfg(not(unix))]
-    {
-        vec![home_check]
+    vec![
+        home_check,
+        check_mode("chrome-profile", &config::chrome_profile_dir(), 0o700),
+        check_mode("flow-music-mcp.db", &config::db_path(), 0o600),
+    ]
+}
+
+/// Takes the `<home>` lock and reports orphaned Chrome; returns the check and `true` when this process holds the lock.
+fn check_instance_lock() -> (Value, bool) {
+    match instance::try_acquire_instance_lock() {
+        Err(e) => (check("instance-lock", "fail", format!("{e:#}")), false),
+        Ok(false) => (
+            check(
+                "instance-lock",
+                "warn",
+                format!(
+                    "Another flow-music-mcp process uses {}",
+                    config::home_dir().display()
+                ),
+            ),
+            false,
+        ),
+        Ok(true) => {
+            let orphans = instance::orphan_chrome_pids(&config::chrome_profile_dir());
+            let value = if orphans.is_empty() {
+                check(
+                    "instance-lock",
+                    "ok",
+                    "No other flow-music-mcp process uses the data directory",
+                )
+            } else {
+                check(
+                    "instance-lock",
+                    "warn",
+                    format!(
+                        "Orphaned Chrome PID {orphans:?} uses the profile; the next Chrome start stops it"
+                    ),
+                )
+            };
+            (value, true)
+        }
     }
 }
 
-/// Checks whether another Chrome process holds the persistent profile.
-fn check_profile_lock(lock: ProfileLock) -> Value {
-    match lock {
-        ProfileLock::Free => check("profile-lock", "ok", "The profile is not in use"),
-        #[cfg(unix)]
-        ProfileLock::Stale => check(
-            "profile-lock",
-            "ok",
-            "A stale lock exists; the next Chrome start removes it",
-        ),
-        #[cfg(unix)]
-        ProfileLock::Orphan(pid) => check(
-            "profile-lock",
-            "warn",
-            format!("Orphaned Chrome PID {pid} holds the profile; the next Chrome start stops it"),
-        ),
-        #[cfg(unix)]
-        ProfileLock::InUse(pid) => check(
-            "profile-lock",
-            "warn",
-            format!("Chrome PID {pid} of another running flow-music-mcp holds the profile"),
-        ),
-    }
-}
-
-/// Checks the Google Flow Music sign-in status in headless Chrome, unless another process holds the profile.
-async fn check_sign_in(lock: ProfileLock) -> Value {
-    if lock.is_in_use() {
+/// Checks the Google Flow Music sign-in status in headless Chrome when this process holds the `<home>` lock.
+async fn check_sign_in(locked: bool) -> Value {
+    if !locked {
         return check(
             "sign-in",
             "skip",
-            "Another flow-music-mcp uses the profile; use the music_login tool there",
+            "Another flow-music-mcp uses the data directory; use the music_login tool there",
         );
     }
     match run_login_action(login_params("status")).await {
@@ -379,9 +391,9 @@ async fn check_sign_in(lock: ProfileLock) -> Value {
 async fn run_doctor(as_json: bool) -> Result<()> {
     let mut checks = vec![check_chrome().await];
     checks.extend(check_home());
-    let lock = chrome::read_profile_lock(&config::chrome_profile_dir()).await;
-    checks.push(check_profile_lock(lock));
-    checks.push(check_sign_in(lock).await);
+    let (lock_check, locked) = check_instance_lock();
+    checks.push(lock_check);
+    checks.push(check_sign_in(locked).await);
 
     if as_json {
         println!(

@@ -84,6 +84,11 @@ pub(crate) fn db_path() -> PathBuf {
     home_dir().join("flow-music-mcp.db")
 }
 
+/// Returns `<home_dir>/flow-music-mcp.lock`, which a process locks while it can start Chrome.
+pub(crate) fn instance_lock_path() -> PathBuf {
+    home_dir().join("flow-music-mcp.lock")
+}
+
 /// Returns `<home_dir>/chrome-profile` for the persistent `0700` Chrome user-data directory.
 pub(crate) fn chrome_profile_dir() -> PathBuf {
     home_dir().join("chrome-profile")
