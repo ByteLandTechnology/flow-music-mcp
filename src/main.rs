@@ -41,12 +41,12 @@ use service::MusicService;
     about = "Rust MCP server for Google Flow Music with a Chrome CDP browser engine"
 )]
 struct Cli {
-    /// Set the data root directory (defaults to FLOW_MUSIC_MCP_HOME or ~/.flow-music-mcp)
-    #[arg(long, value_name = "PATH")]
+    /// Set the data root directory (defaults to ~/.flow-music-mcp)
+    #[arg(long, value_name = "PATH", env = "FLOW_MUSIC_MCP_HOME")]
     home: Option<PathBuf>,
 
-    /// Set the Chrome or Chromium binary path (defaults to FLOW_MUSIC_MCP_CHROME or auto-detect)
-    #[arg(long, value_name = "PATH")]
+    /// Set the Chrome or Chromium binary path (defaults to auto-detect)
+    #[arg(long, value_name = "PATH", env = "FLOW_MUSIC_MCP_CHROME")]
     chrome: Option<PathBuf>,
 }
 

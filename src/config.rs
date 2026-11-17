@@ -23,7 +23,7 @@ static CLI_CHROME_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 /// Stores the `--home` override once at startup.
 ///
-/// [`home_dir`] checks this value before environment variables and platform defaults.
+/// [`home_dir`] checks this value before the platform default.
 pub(crate) fn init_cli_home(home: Option<PathBuf>) {
     if let Some(h) = home {
         let _ = CLI_HOME_DIR.set(h);
@@ -40,15 +40,10 @@ pub(crate) fn cli_chrome_path() -> Option<PathBuf> {
     CLI_CHROME_PATH.get().cloned()
 }
 
-/// Returns the `flow-music-mcp` data root (`--home`, then `FLOW_MUSIC_MCP_HOME`, then `~/.flow-music-mcp`).
+/// Returns the `flow-music-mcp` data root (`--home` or `FLOW_MUSIC_MCP_HOME`, then `~/.flow-music-mcp`).
 pub(crate) fn home_dir() -> PathBuf {
     if let Some(v) = CLI_HOME_DIR.get() {
         return v.clone();
-    }
-    if let Ok(v) = std::env::var("FLOW_MUSIC_MCP_HOME")
-        && !v.trim().is_empty()
-    {
-        return PathBuf::from(v);
     }
     std::env::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))

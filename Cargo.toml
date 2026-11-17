@@ -43,7 +43,7 @@ description = "Rust MCP server for Google Flow Music with a Chrome CDP browser e
 [dependencies]
 anyhow = "1"
 base64 = "0.23"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 futures-util = "0.3"
 mime_guess = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

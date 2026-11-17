@@ -544,16 +544,10 @@ async fn read_active_cdp_port(path: &Path) -> Option<u16> {
     first_line.parse::<u16>().ok().filter(|&p| p > 0)
 }
 
-/// Finds the Chrome or Chromium binary from `--chrome`, `FLOW_MUSIC_MCP_CHROME`, or OS defaults.
+/// Finds the Chrome or Chromium binary from `--chrome` (or `FLOW_MUSIC_MCP_CHROME`), or OS defaults.
 pub(crate) fn find_chrome() -> Option<PathBuf> {
     if let Some(p) = cli_chrome_path() {
         return Some(p);
-    }
-    if let Ok(p) = std::env::var("FLOW_MUSIC_MCP_CHROME") {
-        let trimmed = p.trim();
-        if !trimmed.is_empty() {
-            return Some(PathBuf::from(trimmed));
-        }
     }
     chrome_candidates().into_iter().find(|p| p.is_file())
 }
