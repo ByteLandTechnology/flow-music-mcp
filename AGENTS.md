@@ -13,7 +13,8 @@ The command `cargo xtask ci` checks most of these rules.
 
 ## Independence and protocol boundaries
 
-- `flow-music-mcp` serves 18 MCP tools and download resources over standard input and output via `rmcp`.
+- `flow-music-mcp` serves 18 MCP tools and download resources via `rmcp`: over standard input and output by default, or over Streamable HTTP with `serve --http`.
+- Require a bearer token for HTTP on an address that is not a loopback address. Without a token, keep the loopback `Host` header check of `rmcp`.
 - `ChromeEngine` launches Chrome or Chromium on demand with a persistent `0700` user-data directory at `<home>/chrome-profile` and connects over local Chrome DevTools Protocol (CDP).
 - `ChromeEngine` runs headless CDP Chrome (`--headless=new`) during background operations and opens standard visible Chrome without CDP flags during interactive Google Sign-In in `music_login`.
 - Keep the Google Flow Music session only in the persistent Chrome profile. Do not save or restore session cookies in files.

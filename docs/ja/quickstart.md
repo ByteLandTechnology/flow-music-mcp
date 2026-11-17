@@ -39,6 +39,15 @@ cargo build --release
 
 `--home` ディレクトリには、Chrome プロファイル、SQLite インデックス、すべてのダウンロードが保存されます。既定値は `~/.flow-music-mcp` です。
 
+他のコンピューターから接続するには、サーバーでトークン付きの HTTP モードを起動し、URL をクライアントに追加します。Claude Code の例：
+
+```sh
+FLOW_MUSIC_MCP_HTTP_TOKEN=<十分に長いランダムなトークン> flow-music-mcp serve --http 0.0.0.0:8765
+claude mcp add --transport http flow-music-mcp http://<サーバーのIP>:8765/mcp --header "Authorization: Bearer <十分に長いランダムなトークン>"
+```
+
+HTTP オプションとセキュリティ規則は[ツールリファレンス](tools-reference.md#http-トランスポート)を参照してください。
+
 ## 3. ログイン
 
 `{"action": "login"}` を指定して `music_login` を呼び出します。可視の Chrome ウィンドウで Google Flow Music が開きます。

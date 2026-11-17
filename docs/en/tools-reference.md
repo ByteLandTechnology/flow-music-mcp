@@ -14,7 +14,7 @@ flow-music-mcp [OPTIONS] <COMMAND>
 
 | Subcommand | Description |
 | :--- | :--- |
-| `serve` | Serve the MCP tools and resources over standard input and output. MCP clients use this subcommand. |
+| `serve` | Serve the MCP tools and resources over standard input and output. With `--http`, serve them over Streamable HTTP. MCP clients use this subcommand. |
 | `login [--timeout <SECS>] [--force] [--json]` | Open a visible Chrome window for Google Sign-In and wait until sign-in completes. `--timeout` sets the maximum wait in seconds (default `180`, range `15` to `3600`). `--force` deletes the saved Chrome profile first. |
 | `status [--json]` | Show the sign-in status. If a saved profile exists, this subcommand starts headless Chrome. |
 | `logout [--json]` | Delete `<home>/chrome-profile`. |
@@ -23,6 +23,20 @@ flow-music-mcp [OPTIONS] <COMMAND>
 `login`, `status`, and `logout` use the same actions as `music_login`. They write one `key: value` line for each result field. With `--json`, they write the `music_login` result object. `doctor` writes one line for each check with the status `ok`, `warn`, `fail`, or `skip`.
 
 The exit status is `0` when the subcommand runs to completion. This is also true when you are not signed in or when a `doctor` check fails. The exit status is `1` when an error occurs, for example a sign-in timeout or a Chrome profile that another running `flow-music-mcp` uses. The exit status is `2` when a flag value is not valid.
+
+### HTTP transport
+
+`flow-music-mcp serve --http <IP:PORT>` serves MCP over Streamable HTTP at `http://<IP:PORT>/mcp` instead of standard input and output. All HTTP clients share one Chrome process and one job queue.
+
+| `serve` option | Environment variable | Effect |
+| :--- | :--- | :--- |
+| `--http <IP:PORT>` | `FLOW_MUSIC_MCP_HTTP` | Listen on this address, for example `127.0.0.1:8765` or `0.0.0.0:8765` |
+| `--http-token <TOKEN>` | `FLOW_MUSIC_MCP_HTTP_TOKEN` | Require `Authorization: Bearer <TOKEN>` on each request |
+
+- Without a token, `flow-music-mcp` listens only on a loopback address and accepts only a loopback `Host` header.
+- To accept connections from other computers, set a token. With a token, `flow-music-mcp` accepts any address and any `Host` header. If the address is not a loopback address and you do not set a token, `flow-music-mcp` stops with an error.
+- Set the token in `FLOW_MUSIC_MCP_HTTP_TOKEN` instead of on the command line, because other users of the computer can see command lines. Use a long random value.
+- The server uses plain HTTP. Use it only on a network that you trust, such as a VPN, or put a TLS proxy in front of it.
 
 ### Global options
 

@@ -39,6 +39,15 @@ cargo build --release
 
 The `--home` directory holds the Chrome profile, the SQLite index, and all downloads. The default is `~/.flow-music-mcp`.
 
+To connect from another computer, start the server over HTTP with a token, and add the URL to your client. For example, with Claude Code:
+
+```sh
+FLOW_MUSIC_MCP_HTTP_TOKEN=<long-random-token> flow-music-mcp serve --http 0.0.0.0:8765
+claude mcp add --transport http flow-music-mcp http://<server-ip>:8765/mcp --header "Authorization: Bearer <long-random-token>"
+```
+
+Refer to [Tools Reference](tools-reference.md#http-transport) for the HTTP options and the security rules.
+
 ## 3. Sign in
 
 Call `music_login` with `{"action": "login"}`. A visible Chrome window opens at Google Flow Music:

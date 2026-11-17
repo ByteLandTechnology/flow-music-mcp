@@ -14,7 +14,7 @@ flow-music-mcp [OPTIONS] <COMMAND>
 
 | サブコマンド | 説明 |
 | :--- | :--- |
-| `serve` | 標準入出力で MCP ツールとリソースを提供します。MCP クライアントはこのサブコマンドを使用します。 |
+| `serve` | 標準入出力で MCP ツールとリソースを提供します。`--http` を付けると Streamable HTTP で提供します。MCP クライアントはこのサブコマンドを使用します。 |
 | `login [--timeout <SECS>] [--force] [--json]` | Google ログイン用に可視の Chrome ウィンドウを開き、ログインの完了まで待機します。`--timeout` は最大待機秒数です（既定値 `180`、範囲 `15`〜`3600`）。`--force` は保存済みの Chrome プロファイルを先に削除します。 |
 | `status [--json]` | ログイン状態を表示します。保存済みのプロファイルがある場合は、ヘッドレス Chrome を起動します。 |
 | `logout [--json]` | `<home>/chrome-profile` を削除します。 |
@@ -23,6 +23,20 @@ flow-music-mcp [OPTIONS] <COMMAND>
 `login`、`status`、`logout` は `music_login` と同じアクションを使用し、結果フィールドごとに `key: value` を 1 行ずつ出力します。`--json` を付けると、`music_login` の結果オブジェクトを出力します。`doctor` はチェックごとに 1 行を出力し、ステータスは `ok`、`warn`、`fail`、`skip` のいずれかです。
 
 サブコマンドが最後まで実行されると、終了ステータスは `0` です。未ログインの場合や `doctor` のチェックが失敗した場合も同じです。エラーが発生した場合（たとえばログインのタイムアウトや、実行中の別の `flow-music-mcp` が Chrome プロファイルを使用している場合）は `1` です。フラグの値が無効な場合は `2` です。
+
+### HTTP トランスポート
+
+`flow-music-mcp serve --http <IP:PORT>` は標準入出力の代わりに、`http://<IP:PORT>/mcp` で Streamable HTTP により MCP を提供します。すべての HTTP クライアントは 1 つの Chrome プロセスと 1 つのジョブキューを共有します。
+
+| `serve` オプション | 環境変数 | 効果 |
+| :--- | :--- | :--- |
+| `--http <IP:PORT>` | `FLOW_MUSIC_MCP_HTTP` | このアドレスで待ち受ける（例：`127.0.0.1:8765`、`0.0.0.0:8765`） |
+| `--http-token <TOKEN>` | `FLOW_MUSIC_MCP_HTTP_TOKEN` | 各リクエストに `Authorization: Bearer <TOKEN>` を要求する |
+
+- トークンを設定しない場合、`flow-music-mcp` はループバックアドレスでのみ待ち受け、ループバックの `Host` ヘッダーのみを受け付けます。
+- 他のコンピューターからの接続を受け付けるには、トークンを設定してください。トークンを設定すると、`flow-music-mcp` は任意のアドレスと任意の `Host` ヘッダーを受け付けます。ループバック以外のアドレスでトークンを設定しない場合、`flow-music-mcp` はエラーで終了します。
+- 同じコンピューターの他のユーザーはコマンドラインを見られるため、トークンはコマンドラインではなく `FLOW_MUSIC_MCP_HTTP_TOKEN` で設定してください。十分に長いランダムな値を使用してください。
+- サーバーは平文の HTTP を使用します。VPN など信頼できるネットワークでのみ使用するか、前段に TLS プロキシを置いてください。
 
 ### グローバルオプション
 

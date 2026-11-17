@@ -39,6 +39,15 @@ cargo build --release
 
 `--home` 目录存放 Chrome 配置文件、SQLite 索引和所有下载文件。默认值为 `~/.flow-music-mcp`。
 
+若要从其他计算机连接，请在服务器上带令牌启动 HTTP 模式，然后把 URL 加到客户端。以 Claude Code 为例：
+
+```sh
+FLOW_MUSIC_MCP_HTTP_TOKEN=<足够长的随机令牌> flow-music-mcp serve --http 0.0.0.0:8765
+claude mcp add --transport http flow-music-mcp http://<服务器IP>:8765/mcp --header "Authorization: Bearer <足够长的随机令牌>"
+```
+
+HTTP 选项与安全规则请参阅[工具参考](tools-reference.md#http-传输)。
+
 ## 3. 登录
 
 使用 `{"action": "login"}` 调用 `music_login`。一个可见的 Chrome 窗口会打开 Google Flow Music：

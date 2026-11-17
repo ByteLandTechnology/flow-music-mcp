@@ -14,7 +14,7 @@ flow-music-mcp [OPTIONS] <COMMAND>
 
 | 子命令 | 说明 |
 | :--- | :--- |
-| `serve` | 通过标准输入输出提供 MCP 工具和资源。MCP 客户端使用此子命令。 |
+| `serve` | 通过标准输入输出提供 MCP 工具和资源；加上 `--http` 时改用 Streamable HTTP。MCP 客户端使用此子命令。 |
 | `login [--timeout <SECS>] [--force] [--json]` | 打开可见的 Chrome 窗口进行 Google 登录，并等待登录完成。`--timeout` 设置最长等待秒数（默认 `180`，范围 `15` 到 `3600`）。`--force` 会先删除已保存的 Chrome 配置文件。 |
 | `status [--json]` | 显示登录状态。若存在已保存的配置文件，此子命令会启动无头 Chrome。 |
 | `logout [--json]` | 删除 `<home>/chrome-profile`。 |
@@ -23,6 +23,20 @@ flow-music-mcp [OPTIONS] <COMMAND>
 `login`、`status` 和 `logout` 使用与 `music_login` 相同的操作，并为每个结果字段输出一行 `key: value`。加上 `--json` 时，输出 `music_login` 的结果对象。`doctor` 为每项检查输出一行，状态为 `ok`、`warn`、`fail` 或 `skip`。
 
 子命令正常执行完毕时退出状态码为 `0`，即使尚未登录或 `doctor` 有检查未通过也是如此。发生错误时（例如登录超时，或 Chrome 配置文件正被另一个运行中的 `flow-music-mcp` 使用）退出状态码为 `1`。参数值无效时退出状态码为 `2`。
+
+### HTTP 传输
+
+`flow-music-mcp serve --http <IP:PORT>` 会改为在 `http://<IP:PORT>/mcp` 通过 Streamable HTTP 提供 MCP，而不使用标准输入输出。所有 HTTP 客户端共用同一个 Chrome 进程与同一个任务队列。
+
+| `serve` 选项 | 环境变量 | 作用 |
+| :--- | :--- | :--- |
+| `--http <IP:PORT>` | `FLOW_MUSIC_MCP_HTTP` | 监听此地址，例如 `127.0.0.1:8765` 或 `0.0.0.0:8765` |
+| `--http-token <TOKEN>` | `FLOW_MUSIC_MCP_HTTP_TOKEN` | 要求每个请求携带 `Authorization: Bearer <TOKEN>` |
+
+- 未设置令牌时，`flow-music-mcp` 只监听回环地址，并只接受回环地址的 `Host` 请求头。
+- 若要接受其他计算机的连接，请设置令牌。设置令牌后，`flow-music-mcp` 可监听任意地址并接受任意 `Host` 请求头。监听非回环地址却未设置令牌时，`flow-music-mcp` 会报错退出。
+- 请通过 `FLOW_MUSIC_MCP_HTTP_TOKEN` 设置令牌，而不要写在命令行上，因为同一台计算机的其他用户可以看到命令行。请使用足够长的随机值。
+- 服务器使用明文 HTTP。请只在可信网络（例如 VPN）中使用，或在前面加上 TLS 代理。
 
 ### 全局选项
 
