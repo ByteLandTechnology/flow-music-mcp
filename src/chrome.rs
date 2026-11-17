@@ -102,97 +102,129 @@ fn remove_singleton_artifacts(profile_dir: &Path) {
     }
 }
 
+/// State of the Chrome `SingletonLock` in a profile directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProfileLock {
+    /// No `SingletonLock` exists.
+    Free,
+    /// A `SingletonLock` exists, but no live Chrome process for this profile owns it.
+    #[cfg(unix)]
+    Stale,
+    /// An orphaned Chrome process (parent PID 1 or lower) holds the profile.
+    #[cfg(unix)]
+    Orphan(u32),
+    /// A Chrome process with a live parent, such as another `flow-music-mcp`, holds the profile.
+    #[cfg(unix)]
+    InUse(u32),
+}
+
+impl ProfileLock {
+    /// Returns `true` when a Chrome process with a live parent holds the profile.
+    pub(crate) fn is_in_use(self) -> bool {
+        #[cfg(unix)]
+        {
+            matches!(self, Self::InUse(_))
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+}
+
+/// Reads the `SingletonLock` of `profile_dir` and classifies its owner process.
+#[cfg(unix)]
+pub(crate) async fn read_profile_lock(profile_dir: &Path) -> ProfileLock {
+    let lock_path = profile_dir.join("SingletonLock");
+    if std::fs::symlink_metadata(&lock_path).is_err() {
+        return ProfileLock::Free;
+    }
+    let parsed_pid = std::fs::read_link(&lock_path).ok().and_then(|target| {
+        target
+            .to_string_lossy()
+            .rsplit('-')
+            .next()
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&p| p > 0)
+    });
+    let Some(pid) = parsed_pid else {
+        return ProfileLock::Stale;
+    };
+
+    let ps_out = tokio::process::Command::new("/bin/ps")
+        .arg("-p")
+        .arg(pid.to_string())
+        .arg("-o")
+        .arg("ppid=,args=")
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .await;
+    let Ok(output) = ps_out else {
+        return ProfileLock::Stale;
+    };
+    if !output.status.success() {
+        return ProfileLock::Stale;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let Some((ppid_str, args_str)) = stdout.trim().split_once(char::is_whitespace) else {
+        return ProfileLock::Stale;
+    };
+    if !args_str.contains(profile_dir.to_string_lossy().as_ref()) {
+        return ProfileLock::Stale;
+    }
+    let ppid = ppid_str.trim().parse::<u32>().unwrap_or(0);
+    if ppid <= 1 {
+        ProfileLock::Orphan(pid)
+    } else {
+        ProfileLock::InUse(pid)
+    }
+}
+
+/// Reports a free profile on platforms without Unix `SingletonLock` symlinks.
+#[cfg(not(unix))]
+pub(crate) async fn read_profile_lock(_profile_dir: &Path) -> ProfileLock {
+    ProfileLock::Free
+}
+
+/// Sends `signal` (for example `-INT` or `-KILL`) to process `pid` with `/bin/kill`.
+#[cfg(unix)]
+async fn send_signal(signal: &str, pid: u32) {
+    let _ = tokio::process::Command::new("/bin/kill")
+        .arg(signal)
+        .arg(pid.to_string())
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await;
+}
+
 /// Ensures `profile_dir` exists with `0700` permissions and clears stale lock files.
 async fn prepare_profile_dir(profile_dir: &Path) -> Result<()> {
     create_private_dir_all(profile_dir)?;
     let _ = std::fs::remove_file(profile_dir.join("DevToolsActivePort"));
 
     #[cfg(unix)]
-    {
-        let lock_path = profile_dir.join("SingletonLock");
-        if std::fs::symlink_metadata(&lock_path).is_ok() {
-            let parsed_pid = std::fs::read_link(&lock_path).ok().and_then(|target| {
-                target
-                    .to_string_lossy()
-                    .rsplit('-')
-                    .next()
-                    .and_then(|s| s.parse::<u32>().ok())
-                    .filter(|&p| p > 0)
-            });
-
-            let Some(pid) = parsed_pid else {
-                remove_singleton_artifacts(profile_dir);
-                return Ok(());
-            };
-
-            let ps_out = tokio::process::Command::new("/bin/ps")
-                .arg("-p")
-                .arg(pid.to_string())
-                .arg("-o")
-                .arg("ppid=,args=")
-                .stdin(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .output()
-                .await;
-
-            let Ok(output) = ps_out else {
-                remove_singleton_artifacts(profile_dir);
-                return Ok(());
-            };
-            if !output.status.success() {
-                remove_singleton_artifacts(profile_dir);
-                return Ok(());
+    match read_profile_lock(profile_dir).await {
+        ProfileLock::Free => {}
+        ProfileLock::Stale => remove_singleton_artifacts(profile_dir),
+        ProfileLock::Orphan(pid) => {
+            let lock_path = profile_dir.join("SingletonLock");
+            send_signal("-INT", pid).await;
+            wait_profile_unlocked(profile_dir, Duration::from_secs(3)).await;
+            if std::fs::symlink_metadata(&lock_path).is_ok() {
+                send_signal("-KILL", pid).await;
+                wait_profile_unlocked(profile_dir, Duration::from_secs(1)).await;
             }
-
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let trimmed = stdout.trim();
-            if trimmed.is_empty() {
-                remove_singleton_artifacts(profile_dir);
-                return Ok(());
-            }
-
-            let profile_str = profile_dir.to_string_lossy();
-            let Some((ppid_str, args_str)) = trimmed.split_once(char::is_whitespace) else {
-                remove_singleton_artifacts(profile_dir);
-                return Ok(());
-            };
-            if !args_str.contains(profile_str.as_ref()) {
-                remove_singleton_artifacts(profile_dir);
-                return Ok(());
-            }
-
-            let ppid = ppid_str.trim().parse::<u32>().unwrap_or(0);
-            if ppid <= 1 {
-                let _ = tokio::process::Command::new("/bin/kill")
-                    .arg("-INT")
-                    .arg(pid.to_string())
-                    .stdin(std::process::Stdio::null())
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status()
-                    .await;
-                wait_profile_unlocked(profile_dir, Duration::from_secs(3)).await;
-                if std::fs::symlink_metadata(&lock_path).is_ok() {
-                    let _ = tokio::process::Command::new("/bin/kill")
-                        .arg("-KILL")
-                        .arg(pid.to_string())
-                        .stdin(std::process::Stdio::null())
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::null())
-                        .status()
-                        .await;
-                    wait_profile_unlocked(profile_dir, Duration::from_secs(1)).await;
-                }
-                remove_singleton_artifacts(profile_dir);
-                let _ = std::fs::remove_file(profile_dir.join("DevToolsActivePort"));
-            } else {
-                anyhow::bail!(
-                    "Chrome profile at {} is already in use by another running flow-music-mcp process (Chrome PID {})",
-                    profile_dir.display(),
-                    pid
-                );
-            }
+            remove_singleton_artifacts(profile_dir);
+            let _ = std::fs::remove_file(profile_dir.join("DevToolsActivePort"));
         }
+        ProfileLock::InUse(pid) => anyhow::bail!(
+            "Chrome profile at {} is already in use by another running flow-music-mcp process (Chrome PID {})",
+            profile_dir.display(),
+            pid
+        ),
     }
 
     Ok(())

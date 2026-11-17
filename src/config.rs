@@ -15,35 +15,59 @@ pub(crate) const APP_URL: &str = "https://www.flowmusic.app/library?hl=en";
 /// Google Flow Music start page for interactive sign-in with the English interface parameter.
 pub(crate) const LOGIN_URL: &str = "https://www.flowmusic.app/?hl=en";
 
-/// Process-wide override for `--home`.
-static CLI_HOME_DIR: OnceLock<PathBuf> = OnceLock::new();
+/// Default lower bound of the pause between queue jobs, in milliseconds.
+pub(crate) const DEFAULT_PAUSE_MIN_MS: u64 = 5_000;
 
-/// Process-wide override for `--chrome`.
-static CLI_CHROME_PATH: OnceLock<PathBuf> = OnceLock::new();
+/// Default upper bound of the pause between queue jobs, in milliseconds.
+pub(crate) const DEFAULT_PAUSE_MAX_MS: u64 = 15_000;
 
-/// Stores the `--home` override once at startup.
-///
-/// [`home_dir`] checks this value before the platform default.
-pub(crate) fn init_cli_home(home: Option<PathBuf>) {
-    if let Some(h) = home {
-        let _ = CLI_HOME_DIR.set(h);
+/// Runtime settings that the command line or its environment variables supply.
+#[derive(Debug, Clone)]
+pub(crate) struct Settings {
+    /// Data root from `--home` or `FLOW_MUSIC_MCP_HOME`.
+    pub(crate) home: Option<PathBuf>,
+    /// Chrome or Chromium binary from `--chrome` or `FLOW_MUSIC_MCP_CHROME`.
+    pub(crate) chrome: Option<PathBuf>,
+    /// Fixed Chrome CDP port from `--cdp-port` or `FLOW_MUSIC_MCP_CDP_PORT`.
+    pub(crate) cdp_port: Option<u16>,
+    /// Inclusive pause bounds between queue jobs in milliseconds, from `--pause` or `FLOW_MUSIC_MCP_PAUSE`.
+    pub(crate) pause_ms: (u64, u64),
+}
+
+impl Default for Settings {
+    /// Returns settings with no overrides and the default pause bounds.
+    fn default() -> Self {
+        Self {
+            home: None,
+            chrome: None,
+            cdp_port: None,
+            pause_ms: (DEFAULT_PAUSE_MIN_MS, DEFAULT_PAUSE_MAX_MS),
+        }
     }
 }
 
-/// Stores the `--chrome` executable override once at startup.
-pub(crate) fn set_chrome_path(path: PathBuf) {
-    let _ = CLI_CHROME_PATH.set(path);
+/// Process-wide settings that `init_settings` stores once at startup.
+static SETTINGS: OnceLock<Settings> = OnceLock::new();
+
+/// Stores the parsed runtime settings once at startup.
+pub(crate) fn init_settings(settings: Settings) {
+    let _ = SETTINGS.set(settings);
+}
+
+/// Returns the stored runtime settings, or the defaults before `init_settings` runs.
+fn settings() -> Settings {
+    SETTINGS.get().cloned().unwrap_or_default()
 }
 
 /// Returns the `--chrome` binary path override if set at startup.
 pub(crate) fn cli_chrome_path() -> Option<PathBuf> {
-    CLI_CHROME_PATH.get().cloned()
+    settings().chrome
 }
 
 /// Returns the `flow-music-mcp` data root (`--home` or `FLOW_MUSIC_MCP_HOME`, then `~/.flow-music-mcp`).
 pub(crate) fn home_dir() -> PathBuf {
-    if let Some(v) = CLI_HOME_DIR.get() {
-        return v.clone();
+    if let Some(v) = settings().home {
+        return v;
     }
     std::env::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -70,28 +94,12 @@ pub(crate) fn has_persisted_session() -> bool {
     chrome_profile_dir().join("Default").is_dir()
 }
 
-/// Returns the explicit Chrome CDP port from `FLOW_MUSIC_MCP_CHROME_CDP_PORT` when valid and positive.
+/// Returns the fixed Chrome CDP port from `--cdp-port` or `FLOW_MUSIC_MCP_CDP_PORT`.
 pub(crate) fn configured_cdp_port() -> Option<u16> {
-    std::env::var("FLOW_MUSIC_MCP_CHROME_CDP_PORT")
-        .ok()
-        .and_then(|s| s.parse::<u16>().ok())
-        .filter(|&p| p > 0)
+    settings().cdp_port
 }
 
-/// Reads inter-job pause bounds in milliseconds from `FLOW_MUSIC_MCP_PAUSE_MIN_S`
-/// and `FLOW_MUSIC_MCP_PAUSE_MAX_S`, defaulting to `5_000..=15_000`.
+/// Returns the inclusive pause bounds between queue jobs in milliseconds.
 pub(crate) fn pause_bounds_ms() -> (u64, u64) {
-    let min_ms = std::env::var("FLOW_MUSIC_MCP_PAUSE_MIN_S")
-        .ok()
-        .and_then(|s| s.parse::<f64>().ok())
-        .filter(|s| s.is_finite())
-        .map(|s| (s.clamp(0.0, 86_400.0) * 1000.0) as u64)
-        .unwrap_or(5_000);
-    let max_ms = std::env::var("FLOW_MUSIC_MCP_PAUSE_MAX_S")
-        .ok()
-        .and_then(|s| s.parse::<f64>().ok())
-        .filter(|s| s.is_finite())
-        .map(|s| ((s.clamp(0.0, 86_400.0) * 1000.0) as u64).max(min_ms))
-        .unwrap_or(15_000.max(min_ms));
-    (min_ms, max_ms)
+    settings().pause_ms
 }
