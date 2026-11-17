@@ -444,6 +444,9 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
                 force: Some(force),
                 ..login_params("login")
             };
+            eprintln!(
+                "Complete the sign-in in the browser window. flow-music-mcp continues when it detects the sign-in, or when you close the window."
+            );
             print_result(&run_login_action(params).await?, json)
         }
         Command::Status { json } => {
