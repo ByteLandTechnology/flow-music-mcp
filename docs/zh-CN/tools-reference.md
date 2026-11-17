@@ -4,20 +4,46 @@
 
 ## 命令行选项
 
-| 选项 | 说明 |
-| :--- | :--- |
-| `--home <PATH>` | 数据根目录。默认值：`FLOW_MUSIC_MCP_HOME`，其次为 `~/.flow-music-mcp`。 |
-| `--chrome <PATH>` | Chrome 或 Chromium 二进制文件。默认值：`FLOW_MUSIC_MCP_CHROME`，其次为自动检测。 |
+```text
+flow-music-mcp [OPTIONS] <COMMAND>
+```
 
-## 环境变量
+`flow-music-mcp` 没有默认子命令。不带子命令启动时，它会输出帮助并以状态码 `2` 退出。
 
-| 变量 | 说明 |
+### 子命令
+
+| 子命令 | 说明 |
 | :--- | :--- |
-| `FLOW_MUSIC_MCP_HOME` | 未设置 `--home` 时使用的数据根目录。 |
-| `FLOW_MUSIC_MCP_CHROME` | 未设置 `--chrome` 时使用的 Chrome 或 Chromium 二进制文件。 |
-| `FLOW_MUSIC_MCP_CHROME_CDP_PORT` | 固定的本地 CDP 端口。默认值：由 Chrome 选择的空闲端口。 |
-| `FLOW_MUSIC_MCP_PAUSE_MIN_S` | 队列中作业之间的最短暂停时间（秒）。默认值：`5`。 |
-| `FLOW_MUSIC_MCP_PAUSE_MAX_S` | 队列中作业之间的最长暂停时间（秒）。默认值：`15`。 |
+| `serve` | 通过标准输入输出提供 MCP 工具和资源。MCP 客户端使用此子命令。 |
+| `login [--timeout <SECS>] [--force] [--json]` | 打开可见的 Chrome 窗口进行 Google 登录，并等待登录完成。`--timeout` 设置最长等待秒数（默认 `180`，范围 `15` 到 `3600`）。`--force` 会先删除已保存的 Chrome 配置文件。 |
+| `status [--json]` | 显示登录状态。若存在已保存的配置文件，此子命令会启动无头 Chrome。 |
+| `logout [--json]` | 删除 `<home>/chrome-profile`。 |
+| `doctor [--json]` | 检查 Chrome 二进制文件、`<home>` 与文件权限、配置文件锁以及登录状态。 |
+
+`login`、`status` 和 `logout` 使用与 `music_login` 相同的操作，并为每个结果字段输出一行 `key: value`。加上 `--json` 时，输出 `music_login` 的结果对象。`doctor` 为每项检查输出一行，状态为 `ok`、`warn`、`fail` 或 `skip`。
+
+子命令正常执行完毕时退出状态码为 `0`，即使尚未登录或 `doctor` 有检查未通过也是如此。发生错误时（例如登录超时，或 Chrome 配置文件正被另一个运行中的 `flow-music-mcp` 使用）退出状态码为 `1`。参数值无效时退出状态码为 `2`。
+
+### 全局选项
+
+这些选项可以写在子命令之前或之后。命令行标志优先于对应的环境变量。
+
+| 选项 | 环境变量 | 说明 |
+| :--- | :--- | :--- |
+| `--home <PATH>` | `FLOW_MUSIC_MCP_HOME` | 数据根目录。默认值：`~/.flow-music-mcp`。 |
+| `--chrome <PATH>` | `FLOW_MUSIC_MCP_CHROME` | Chrome 或 Chromium 二进制文件。默认值：自动检测。 |
+| `--cdp-port <PORT>` | `FLOW_MUSIC_MCP_CDP_PORT` | 固定的本地 CDP 端口，范围 `1` 到 `65535`。默认值：由 Chrome 选择的空闲端口。 |
+| `--pause <MIN[,MAX]>` | `FLOW_MUSIC_MCP_PAUSE` | 队列中作业之间的随机暂停秒数，范围 `0` 到 `86400`。只写一个值表示固定暂停，`0` 表示不暂停。默认值：`5,15`。 |
+| `-h`, `--help` | — | 输出帮助并退出。 |
+| `-V`, `--version` | — | 输出版本并退出。 |
+
+参数值无效时，`flow-music-mcp` 会将错误写到标准错误输出，并在启动 Chrome 之前退出。
+
+### 从 0.2 升级
+
+- 在 MCP 客户端配置的 `"args"` 中加入 `serve`。
+- 将 `FLOW_MUSIC_MCP_CHROME_CDP_PORT` 改为 `FLOW_MUSIC_MCP_CDP_PORT`。
+- 将 `FLOW_MUSIC_MCP_PAUSE_MIN_S` 和 `FLOW_MUSIC_MCP_PAUSE_MAX_S` 改为 `FLOW_MUSIC_MCP_PAUSE`（例如 `5,15`）。
 
 ## MCP 资源
 

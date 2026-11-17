@@ -31,7 +31,7 @@ cargo build --release
   "mcpServers": {
     "flow-music": {
       "command": "npx",
-      "args": ["-y", "@flow-music-mcp/cli", "--home", "/path/to/.flow-music-mcp"]
+      "args": ["-y", "@flow-music-mcp/cli", "serve", "--home", "/path/to/.flow-music-mcp"]
     }
   }
 }
@@ -48,6 +48,8 @@ Call `music_login` with `{"action": "login"}`. A visible Chrome window opens at 
 3. Close the window, or wait. The server detects the session, closes the window, and starts headless Chrome on the same profile.
 
 Then call `music_status` with `{"probe": true}`. The result shows `signed_in: true`, your plan, and your credits.
+
+You can also sign in from a terminal with `flow-music-mcp login --home /path/to/.flow-music-mcp`. Stop your MCP client first, because two `flow-music-mcp` processes cannot use one Chrome profile at the same time. Run `flow-music-mcp doctor` to check the Chrome binary, the data directory, and the sign-in status.
 
 ## 4. Make a song
 

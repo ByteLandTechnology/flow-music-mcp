@@ -31,7 +31,7 @@ cargo build --release
   "mcpServers": {
     "flow-music": {
       "command": "npx",
-      "args": ["-y", "@flow-music-mcp/cli", "--home", "/path/to/.flow-music-mcp"]
+      "args": ["-y", "@flow-music-mcp/cli", "serve", "--home", "/path/to/.flow-music-mcp"]
     }
   }
 }
@@ -48,6 +48,8 @@ cargo build --release
 3. ウィンドウを閉じるか、そのまま待ちます。サーバーはセッションを検出するとウィンドウを閉じ、同じプロファイルでヘッドレス Chrome を起動します。
 
 次に、`{"probe": true}` を指定して `music_status` を呼び出します。結果には `signed_in: true`、プラン、クレジットが表示されます。
+
+ターミナルから `flow-music-mcp login --home /path/to/.flow-music-mcp` を実行してログインすることもできます。2 つの `flow-music-mcp` プロセスは同じ Chrome プロファイルを同時に使用できないため、先に MCP クライアントを停止してください。`flow-music-mcp doctor` を実行すると、Chrome バイナリ、データディレクトリ、ログイン状態を確認できます。
 
 ## 4. 曲の作成
 

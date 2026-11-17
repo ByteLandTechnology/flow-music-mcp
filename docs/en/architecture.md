@@ -50,7 +50,7 @@ Edits use recipes. `POST /__api/recipes/create` stores three nodes: the input cl
 
 ## Job queue
 
-`JobQueue` runs one job at a time on one worker task. Between jobs, the worker waits a random time from `FLOW_MUSIC_MCP_PAUSE_MIN_S` to `FLOW_MUSIC_MCP_PAUSE_MAX_S` (default 5 to 15 seconds).
+`JobQueue` runs one job at a time on one worker task. Between jobs, the worker waits a random time in the `--pause` or `FLOW_MUSIC_MCP_PAUSE` range (default 5 to 15 seconds).
 
 - The queue never retries a job automatically. `music_retry` runs a failed or cancelled job again and spends credits again.
 - `music_cancel` stops the local job. When the job has a session, the server also sends `POST /__api/conversations/<id>/stop`. Clips that a tool call already started continue to render on the server and spend credits.

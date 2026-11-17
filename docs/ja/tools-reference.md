@@ -4,20 +4,46 @@
 
 ## コマンドラインオプション
 
-| オプション | 説明 |
-| :--- | :--- |
-| `--home <PATH>` | データのルートディレクトリ。既定値: `FLOW_MUSIC_MCP_HOME`、次に `~/.flow-music-mcp`。 |
-| `--chrome <PATH>` | Chrome または Chromium のバイナリ。既定値: `FLOW_MUSIC_MCP_CHROME`、次に自動検出。 |
+```text
+flow-music-mcp [OPTIONS] <COMMAND>
+```
 
-## 環境変数
+`flow-music-mcp` には既定のサブコマンドがありません。サブコマンドを付けずに起動すると、ヘルプを表示してステータス `2` で終了します。
 
-| 変数 | 説明 |
+### サブコマンド
+
+| サブコマンド | 説明 |
 | :--- | :--- |
-| `FLOW_MUSIC_MCP_HOME` | `--home` が設定されていない場合のデータのルートディレクトリ。 |
-| `FLOW_MUSIC_MCP_CHROME` | `--chrome` が設定されていない場合の Chrome または Chromium のバイナリ。 |
-| `FLOW_MUSIC_MCP_CHROME_CDP_PORT` | 固定のローカル CDP ポート。既定値: Chrome が選ぶ空きポート。 |
-| `FLOW_MUSIC_MCP_PAUSE_MIN_S` | キュー内のジョブ間の最小待機時間（秒）。既定値: `5`。 |
-| `FLOW_MUSIC_MCP_PAUSE_MAX_S` | キュー内のジョブ間の最大待機時間（秒）。既定値: `15`。 |
+| `serve` | 標準入出力で MCP ツールとリソースを提供します。MCP クライアントはこのサブコマンドを使用します。 |
+| `login [--timeout <SECS>] [--force] [--json]` | Google ログイン用に可視の Chrome ウィンドウを開き、ログインの完了まで待機します。`--timeout` は最大待機秒数です（既定値 `180`、範囲 `15`〜`3600`）。`--force` は保存済みの Chrome プロファイルを先に削除します。 |
+| `status [--json]` | ログイン状態を表示します。保存済みのプロファイルがある場合は、ヘッドレス Chrome を起動します。 |
+| `logout [--json]` | `<home>/chrome-profile` を削除します。 |
+| `doctor [--json]` | Chrome バイナリ、`<home>` とファイル権限、プロファイルロック、ログイン状態を確認します。 |
+
+`login`、`status`、`logout` は `music_login` と同じアクションを使用し、結果フィールドごとに `key: value` を 1 行ずつ出力します。`--json` を付けると、`music_login` の結果オブジェクトを出力します。`doctor` はチェックごとに 1 行を出力し、ステータスは `ok`、`warn`、`fail`、`skip` のいずれかです。
+
+サブコマンドが最後まで実行されると、終了ステータスは `0` です。未ログインの場合や `doctor` のチェックが失敗した場合も同じです。エラーが発生した場合（たとえばログインのタイムアウトや、実行中の別の `flow-music-mcp` が Chrome プロファイルを使用している場合）は `1` です。フラグの値が無効な場合は `2` です。
+
+### グローバルオプション
+
+これらのオプションはサブコマンドの前後どちらにも書けます。フラグは対応する環境変数に優先します。
+
+| オプション | 環境変数 | 説明 |
+| :--- | :--- | :--- |
+| `--home <PATH>` | `FLOW_MUSIC_MCP_HOME` | データのルートディレクトリ。既定値: `~/.flow-music-mcp`。 |
+| `--chrome <PATH>` | `FLOW_MUSIC_MCP_CHROME` | Chrome または Chromium のバイナリ。既定値: 自動検出。 |
+| `--cdp-port <PORT>` | `FLOW_MUSIC_MCP_CDP_PORT` | 固定のローカル CDP ポート（`1`〜`65535`）。既定値: Chrome が選ぶ空きポート。 |
+| `--pause <MIN[,MAX]>` | `FLOW_MUSIC_MCP_PAUSE` | キュー内のジョブ間のランダムな待機秒数（`0`〜`86400`）。値が 1 つの場合は固定の待機、`0` は待機なし。既定値: `5,15`。 |
+| `-h`, `--help` | — | ヘルプを表示して終了します。 |
+| `-V`, `--version` | — | バージョンを表示して終了します。 |
+
+値が無効な場合、`flow-music-mcp` は標準エラー出力にエラーを書き込み、Chrome を起動する前に終了します。
+
+### 0.2 からのアップグレード
+
+- MCP クライアント設定の `"args"` に `serve` を追加します。
+- `FLOW_MUSIC_MCP_CHROME_CDP_PORT` を `FLOW_MUSIC_MCP_CDP_PORT` に置き換えます。
+- `FLOW_MUSIC_MCP_PAUSE_MIN_S` と `FLOW_MUSIC_MCP_PAUSE_MAX_S` を `FLOW_MUSIC_MCP_PAUSE`（たとえば `5,15`）に置き換えます。
 
 ## MCP リソース
 

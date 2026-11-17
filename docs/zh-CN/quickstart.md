@@ -31,7 +31,7 @@ cargo build --release
   "mcpServers": {
     "flow-music": {
       "command": "npx",
-      "args": ["-y", "@flow-music-mcp/cli", "--home", "/path/to/.flow-music-mcp"]
+      "args": ["-y", "@flow-music-mcp/cli", "serve", "--home", "/path/to/.flow-music-mcp"]
     }
   }
 }
@@ -48,6 +48,8 @@ cargo build --release
 3. 关闭窗口，或等待。服务器检测到会话后会关闭窗口，并在同一配置文件上启动无头 Chrome。
 
 然后使用 `{"probe": true}` 调用 `music_status`。结果会显示 `signed_in: true`、您的套餐和额度。
+
+也可以在终端中运行 `flow-music-mcp login --home /path/to/.flow-music-mcp` 完成登录。请先停止 MCP 客户端，因为两个 `flow-music-mcp` 进程不能同时使用同一个 Chrome 配置文件。运行 `flow-music-mcp doctor` 可以检查 Chrome 二进制文件、数据目录和登录状态。
 
 ## 4. 创作歌曲
 

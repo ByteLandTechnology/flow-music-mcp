@@ -1,23 +1,49 @@
 # Tools Reference
 
-This reference lists the command-line options, environment variables, MCP resources, and MCP tools of `flow-music-mcp`.
+This reference lists the subcommands, command-line options, environment variables, MCP resources, and MCP tools of `flow-music-mcp`.
 
 ## Command-line options
 
-| Option | Description |
-| :--- | :--- |
-| `--home <PATH>` | Data root directory. Default: `FLOW_MUSIC_MCP_HOME`, then `~/.flow-music-mcp`. |
-| `--chrome <PATH>` | Chrome or Chromium binary. Default: `FLOW_MUSIC_MCP_CHROME`, then auto-detection. |
+```text
+flow-music-mcp [OPTIONS] <COMMAND>
+```
 
-## Environment variables
+`flow-music-mcp` has no default subcommand. If you start it without a subcommand, it prints help and exits with status `2`.
 
-| Variable | Description |
+### Subcommands
+
+| Subcommand | Description |
 | :--- | :--- |
-| `FLOW_MUSIC_MCP_HOME` | Data root directory when `--home` is not set. |
-| `FLOW_MUSIC_MCP_CHROME` | Chrome or Chromium binary when `--chrome` is not set. |
-| `FLOW_MUSIC_MCP_CHROME_CDP_PORT` | Fixed local CDP port. Default: a free port that Chrome selects. |
-| `FLOW_MUSIC_MCP_PAUSE_MIN_S` | Minimum pause between queued jobs in seconds. Default: `5`. |
-| `FLOW_MUSIC_MCP_PAUSE_MAX_S` | Maximum pause between queued jobs in seconds. Default: `15`. |
+| `serve` | Serve the MCP tools and resources over standard input and output. MCP clients use this subcommand. |
+| `login [--timeout <SECS>] [--force] [--json]` | Open a visible Chrome window for Google Sign-In and wait until sign-in completes. `--timeout` sets the maximum wait in seconds (default `180`, range `15` to `3600`). `--force` deletes the saved Chrome profile first. |
+| `status [--json]` | Show the sign-in status. If a saved profile exists, this subcommand starts headless Chrome. |
+| `logout [--json]` | Delete `<home>/chrome-profile`. |
+| `doctor [--json]` | Check the Chrome binary, `<home>` and file permissions, the profile lock, and the sign-in status. |
+
+`login`, `status`, and `logout` use the same actions as `music_login`. They write one `key: value` line for each result field. With `--json`, they write the `music_login` result object. `doctor` writes one line for each check with the status `ok`, `warn`, `fail`, or `skip`.
+
+The exit status is `0` when the subcommand runs to completion. This is also true when you are not signed in or when a `doctor` check fails. The exit status is `1` when an error occurs, for example a sign-in timeout or a Chrome profile that another running `flow-music-mcp` uses. The exit status is `2` when a flag value is not valid.
+
+### Global options
+
+You can write these options before or after the subcommand. A flag has priority over its environment variable.
+
+| Option | Environment variable | Description |
+| :--- | :--- | :--- |
+| `--home <PATH>` | `FLOW_MUSIC_MCP_HOME` | Data root directory. Default: `~/.flow-music-mcp`. |
+| `--chrome <PATH>` | `FLOW_MUSIC_MCP_CHROME` | Chrome or Chromium binary. Default: auto-detection. |
+| `--cdp-port <PORT>` | `FLOW_MUSIC_MCP_CDP_PORT` | Fixed local CDP port from `1` to `65535`. Default: a free port that Chrome selects. |
+| `--pause <MIN[,MAX]>` | `FLOW_MUSIC_MCP_PAUSE` | Random pause between queued jobs in seconds, from `0` to `86400`. One value sets a fixed pause. `0` disables the pause. Default: `5,15`. |
+| `-h`, `--help` | — | Print help and exit. |
+| `-V`, `--version` | — | Print the version and exit. |
+
+If a value is not valid, `flow-music-mcp` writes an error to standard error and stops before it starts Chrome.
+
+### Upgrade from 0.2
+
+- Add `serve` to the `"args"` of your MCP client configuration.
+- Replace `FLOW_MUSIC_MCP_CHROME_CDP_PORT` with `FLOW_MUSIC_MCP_CDP_PORT`.
+- Replace `FLOW_MUSIC_MCP_PAUSE_MIN_S` and `FLOW_MUSIC_MCP_PAUSE_MAX_S` with `FLOW_MUSIC_MCP_PAUSE` (for example `5,15`).
 
 ## MCP resources
 

@@ -36,7 +36,7 @@ MCP stdio クライアントの設定（`mcpServers`）にサーバーを追加�
   "mcpServers": {
     "flow-music": {
       "command": "npx",
-      "args": ["-y", "@flow-music-mcp/cli", "--home", "/path/to/.flow-music-mcp"]
+      "args": ["-y", "@flow-music-mcp/cli", "serve", "--home", "/path/to/.flow-music-mcp"]
     }
   }
 }
