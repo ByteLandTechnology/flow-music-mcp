@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/ByteLandTechnology/flow-music-mcp/compare/v1.1.0...v1.2.0) (2026-11-17)
+
+
+### Features
+
+* serve mcp over streamable http with an optional token ([77b4502](https://github.com/ByteLandTechnology/flow-music-mcp/commit/77b4502193e1d9509322e6f38c272f7e44635798))
+
 ## [1.1.0](https://github.com/ByteLandTechnology/flow-music-mcp/compare/v1.0.0...v1.1.0) (2026-11-17)
 
 
