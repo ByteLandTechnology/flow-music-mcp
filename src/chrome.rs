@@ -247,13 +247,11 @@ impl ManagedChrome {
 }
 
 impl LoginChrome {
-    /// Launches standard visible Chrome on a clean `<home>/chrome-profile` (`0700`) without CDP flags.
+    /// Launches standard visible Chrome on `<home>/chrome-profile` (`0700`) without CDP flags.
     pub(crate) async fn launch(start_url: &str) -> Result<Self> {
         let chrome = resolve_chrome_binary()?;
         let profile_dir = chrome_profile_dir();
         prepare_profile_dir(&profile_dir).await?;
-        let _ = tokio::fs::remove_dir_all(&profile_dir).await;
-        create_private_dir_all(&profile_dir)?;
 
         let initial_url = if start_url.trim().is_empty() {
             "about:blank"

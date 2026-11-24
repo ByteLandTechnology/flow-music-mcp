@@ -20,7 +20,7 @@
 
 Google Flow Music は、`www.flowmusic.app` 上の Supabase Cookie（`sb-sb-auth-token.0`、`sb-sb-auth-token.1`、およびその他のチャンク）にセッションを保持します。セッションは `<home>/chrome-profile` の永続的な Chrome プロファイル内にのみ存在します。サーバーはセッション Cookie を他のファイルにコピーしません。
 
-1. `music_login` は、クリーンなプロファイルで CDP フラグなしの可視の Chrome ウィンドウを開きます。
+1. `music_login` は、`<home>/chrome-profile` で CDP フラグなしの可視の Chrome ウィンドウを開きます。
 2. サーバーは毎秒、Chrome の `Cookies` データベースと `History` データベースの一時コピーを読み取ります。セッション Cookie と、Google アカウントの拒否ページを探します。
 3. セッション Cookie が存在するとき、またはユーザーがウィンドウを閉じたとき、サーバーは可視の Chrome を停止し、同じプロファイルでヘッドレス Chrome を起動します。
 4. ページランタイムは `GET /__api/users/me` でセッションを確認します。
