@@ -20,7 +20,7 @@ This guide explains how `flow-music-mcp` works.
 
 Google Flow Music keeps its session in Supabase cookies (`sb-sb-auth-token.0`, `sb-sb-auth-token.1`, and more chunks) on `www.flowmusic.app`. The session lives only in the persistent Chrome profile at `<home>/chrome-profile`. The server does not copy session cookies to other files.
 
-1. `music_login` opens a visible Chrome window without CDP flags on a clean profile.
+1. `music_login` opens a visible Chrome window without CDP flags on `<home>/chrome-profile`.
 2. The server reads scratch copies of the Chrome `Cookies` and `History` databases each second. It looks for the session cookie and for a Google Accounts rejection page.
 3. When the session cookie exists, or when the user closes the window, the server stops the visible Chrome and starts headless Chrome on the same profile.
 4. The page runtime confirms the session with `GET /__api/users/me`.

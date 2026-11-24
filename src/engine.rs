@@ -100,7 +100,7 @@ impl ChromeEngine {
         self.login_chrome.lock().await.is_some()
     }
 
-    /// Launches a clean visible Chrome window without CDP flags for interactive Google Sign-In.
+    /// Launches a visible Chrome window on `<home>/chrome-profile` without CDP flags for interactive Google Sign-In.
     pub(crate) async fn launch_interactive_login(&self, start_url: &str) -> Result<()> {
         let _ensure = self.ensure_lock.lock().await;
         let prev_active = self.inner.lock().await.take();

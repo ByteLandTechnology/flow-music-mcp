@@ -20,7 +20,7 @@
 
 Google Flow Music 将会话保存在 `www.flowmusic.app` 上的 Supabase Cookie（`sb-sb-auth-token.0`、`sb-sb-auth-token.1` 以及更多分块）中。会话只存在于 `<home>/chrome-profile` 的持久化 Chrome 配置文件中。服务器不会将会话 Cookie 复制到其他文件。
 
-1. `music_login` 在干净的配置文件上打开一个不带 CDP 参数的可见 Chrome 窗口。
+1. `music_login` 在 `<home>/chrome-profile` 上打开一个不带 CDP 参数的可见 Chrome 窗口。
 2. 服务器每秒读取一次 Chrome `Cookies` 和 `History` 数据库的临时副本。它查找会话 Cookie 和 Google 账号的拒绝页面。
 3. 当会话 Cookie 存在，或用户关闭窗口时，服务器停止可见的 Chrome，并在同一配置文件上启动无头 Chrome。
 4. 页面运行时通过 `GET /__api/users/me` 确认会话。

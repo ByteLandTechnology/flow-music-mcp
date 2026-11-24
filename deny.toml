@@ -5,6 +5,7 @@ ignore = [
   { id = "RUSTSEC-2026-0457", reason = "Offline cache pins rmcp 3.1.2; flow-mcp only uses the stdio server transport and never runs the OAuth client" },
   { id = "RUSTSEC-2026-0461", reason = "Offline cache pins rmcp 3.1.2; StreamableHttpService is not enabled or used in flow-mcp" },
   { id = "RUSTSEC-2026-0462", reason = "Offline cache pins rmcp 3.1.2; Streamable HTTP client transports are not enabled or used in flow-mcp" },
+  { id = "RUSTSEC-2026-0543", reason = "No safe chrono upgrade exists; rmcp 3.1.2 enables the chrono04 feature of schemars, and flow-music-mcp uses chrono only to generate JSON schemas and does not parse untrusted dates" },
 ]
 
 [licenses]
